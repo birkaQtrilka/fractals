@@ -1,3 +1,8 @@
+use beryllium::{
+  *,
+};
+use ogl33::*;
+
 /// Sets the color to clear to when clearing the screen.
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) {
   unsafe { glClearColor(r, g, b, a) }
@@ -182,8 +187,6 @@ impl Shader {
     }
   }
 }
-
-pub struct ShaderProgram(pub GLuint);
 
 /// A handle to a [Program
 /// Object](https://www.khronos.org/opengl/wiki/GLSL_Object#Program_objects)

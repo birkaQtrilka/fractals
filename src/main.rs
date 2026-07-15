@@ -6,7 +6,7 @@ use beryllium::{
   init::InitFlags,
   video::{CreateWinArgs, GlContextFlags, GlProfile, GlSwapInterval},
   *,
-};`
+};
 use ogl33::*;
 use learn_opengl as learn;
 const WINDOW_TITLE: &str = "Fractals";
@@ -57,7 +57,7 @@ fn main() {
   unsafe {
     load_gl_with(|f_name| win.get_proc_address(f_name as *const u8));
     glClearColor(0.2, 0.3, 0.3, 1.0);
-    win.set_swap_interval(GlSwapInterval::Vsync);
+    let _ = win.set_swap_interval(GlSwapInterval::Vsync);
 
     let mut vao = 0;
     glGenVertexArrays(1, &mut vao);
