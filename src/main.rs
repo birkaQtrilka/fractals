@@ -8,11 +8,23 @@ use beryllium::{
   *,
 };
 use ogl33::*;
-use learn_opengl as learn;
+use learn_opengl::{
+  self as learn,
+  VertexArray,
+  Buffer,
+  BufferType,
+  ShaderProgram
+};
+
 const WINDOW_TITLE: &str = "Fractals";
 type Vertex = [f32; 3];
-const VERTICES: [Vertex; 3] =
-  [[-0.5, -0.5, 0.0], [0.5, -0.5, 0.0], [0.0, 0.5, 0.0]];
+type TriIndexes = [u32; 3];
+
+
+const VERTICES: [Vertex; 4] =
+  [[0.5, 0.5, 0.0], [0.5, -0.5, 0.0], [-0.5, -0.5, 0.0], [-0.5, 0.5, 0.0]];
+
+const INDICES: [TriIndexes; 2] = [[0, 1, 3], [1, 2, 3]];
 
 const VERT_SHADER: &str = r#"#version 330 core
   layout (location = 0) in vec3 pos;
@@ -33,8 +45,9 @@ fn main() {
 
   let sdl = Sdl::init(init::InitFlags::EVERYTHING);
   sdl.set_gl_context_major_version(3).unwrap();
-  sdl.set_gl_context_major_version(3).unwrap();
+  sdl.set_gl_context_minor_version(3).unwrap();
   sdl.set_gl_profile(video::GlProfile::Core).unwrap();
+  
   #[cfg(target_os = "macos")]
   {
     sdl
@@ -56,25 +69,31 @@ fn main() {
   
   unsafe {
     load_gl_with(|f_name| win.get_proc_address(f_name as *const u8));
-    glClearColor(0.2, 0.3, 0.3, 1.0);
     let _ = win.set_swap_interval(GlSwapInterval::Vsync);
+  }
 
-    let mut vao = 0;
-    glGenVertexArrays(1, &mut vao);
-    assert_ne!(vao, 0);
+  learn::clear_color(0.2, 0.3, 0.3, 1.0);
 
-    let mut vbo = 0;
-    glGenBuffers(1, &mut vbo);
-    assert_ne!(vbo, 0);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+  let vao = VertexArray::new().expect("Couldn't make vao");
+  vao.bind();
 
-    glBufferData(
-      GL_ARRAY_BUFFER,
-      size_of_val(&VERTICES) as isize,
-      VERTICES.as_ptr().cast(),
-      GL_STATIC_DRAW,
-    );
+  let mut vbo = Buffer::new().expect("Couldn't make vbo");
+  vbo.bind(BufferType::Array);
+  learn::buffer_data(
+    BufferType::Array, 
+    bytemuck::cast_slice(&VERTICES),
+    GL_STATIC_DRAW
+  );
 
+  let mut ebo = Buffer::new().expect("Couldn't make ebo");
+  ebo.bind(BufferType::ElementArray);
+  learn::buffer_data(
+    BufferType::ElementArray, 
+    bytemuck::cast_slice(&INDICES),
+    GL_STATIC_DRAW
+  );
+
+  unsafe {
     glVertexAttribPointer(
       0,
       3,
@@ -84,85 +103,11 @@ fn main() {
       0 as *const _,
     );
     glEnableVertexAttribArray(0);
-
-    let vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    assert_ne!(vertex_shader, 0);
-
-    glShaderSource(
-      vertex_shader,
-      1,
-      &(VERT_SHADER.as_bytes().as_ptr().cast()),
-      &(VERT_SHADER.len().try_into().unwrap()),
-    );
-
-    glCompileShader(vertex_shader);
-    let mut success = 0;
-    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &mut success);
-
-    if success == 0 {
-      let mut v: Vec<u8> = Vec::with_capacity(1024);
-      let mut log_len = 0_i32;
-      glGetShaderInfoLog(
-        vertex_shader,
-        1024,
-        &mut log_len,
-        v.as_mut_ptr().cast(),
-      );
-      v.set_len(log_len.try_into().unwrap());
-      panic!("Vertex Compile Error: {}", String::from_utf8_lossy(&v));
-    }
-
-    let fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    assert_ne!(fragment_shader, 0);
-
-    glShaderSource(
-      fragment_shader,
-      1,
-      &(FRAG_SHADER.as_bytes().as_ptr().cast()),
-      &(FRAG_SHADER.len().try_into().unwrap()),
-    );
-
-    glCompileShader(fragment_shader);
-    let mut success = 0;
-    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &mut success);
-
-    if success == 0 {
-      let mut v: Vec<u8> = Vec::with_capacity(1024);
-      let mut log_len = 0_i32;
-      glGetShaderInfoLog(
-        fragment_shader,
-        1024,
-        &mut log_len,
-        v.as_mut_ptr().cast(),
-      );
-      v.set_len(log_len.try_into().unwrap());
-      panic!("Vertex Compile Error: {}", String::from_utf8_lossy(&v));
-    }
-
-    let shader_program = glCreateProgram();
-    glAttachShader(shader_program, vertex_shader);
-    glAttachShader(shader_program, fragment_shader);
-    glLinkProgram(shader_program);
-
-    let mut success = 0;
-    glGetProgramiv(shader_program, GL_LINK_STATUS, &mut success);
-    if success == 0 {
-      let mut v: Vec<u8> = Vec::with_capacity(1024);
-      let mut log_len = 0_i32;
-      glGetProgramInfoLog(
-        shader_program,
-        1024,
-        &mut log_len,
-        v.as_mut_ptr().cast(),
-      );
-      v.set_len(log_len.try_into().unwrap());
-      panic!("Program Link Error: {}", String::from_utf8_lossy(&v));
-    }
-
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-    glUseProgram(shader_program);
   }
+  let programm = ShaderProgram::from_vert_frag(&VERT_SHADER, &FRAG_SHADER).expect("couldn't create programm");
+  programm.use_program();
+
+  learn::polygon_mode(learn::PolygonMode::Fill);
 
   'main_loop: loop {
     while let Some(event) = sdl.poll_events() {
@@ -175,7 +120,7 @@ fn main() {
     // here's where we could change the world state and draw.
     unsafe {
       glClear(GL_COLOR_BUFFER_BIT);
-      glDrawArrays(GL_TRIANGLES, 0, 3);
+      glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 as *const _);
       win.swap_window();
     }
   }
