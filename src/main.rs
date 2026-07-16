@@ -1,10 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod learn_opengl;
 
-use std::ffi::CString;
+use std::{collections::HashSet, ffi::CString};
 
 use beryllium::{
-  events::{Event, SDLK_DOWN, SDLK_ESCAPE, SDLK_LEFT, SDLK_RIGHT, SDLK_UP, SDLK_x, SDLK_z}, video::GlSwapInterval, *,
+  events::{Event, SDL_Keycode, SDLK_DOWN, SDLK_ESCAPE, SDLK_LEFT, SDLK_RIGHT, SDLK_UP, SDLK_x, SDLK_z}, video::GlSwapInterval, *,
 };
 use ogl33::*;
 use learn_opengl::{
@@ -79,10 +79,6 @@ const FRAG_SHADER: &str = r#"#version 330 core
 
     final_color = vec4(bright, bright, 0.2, 1.0);
   }
-
-  vec2 mathh(vec2 a, vec2 b) {
-
-  }
 "#;
 
 
@@ -154,10 +150,10 @@ fn main() {
 
   learn::polygon_mode(learn::PolygonMode::Fill);
 
-  let mut zoom = 1.0;
-  let zoom_strength = 0.9;
-  let mut pos = (0.0,0.0);
-  let move_speed = 0.05;
+  let mut zoom: f32 = 1.0;
+  let zoom_speed = 0.95;
+  let mut pos = (0.0_f32, 0.0_f32);
+  let move_speed = 0.02;
 
   let zoom_name = CString::new("zoom").unwrap();
   let zoom_location = unsafe {
@@ -168,41 +164,49 @@ fn main() {
   let pos_location = unsafe {
     glGetUniformLocation(programm.0, pos_name.as_ptr())
   };
+  let mut keys_pressed: HashSet<SDL_Keycode> = HashSet::new();
   
   'main_loop: loop {
+    // Process all events
     while let Some((event, _remaining)) = sdl.poll_events() {
       match event {
         Event::Quit => break 'main_loop,
         Event::Key { pressed, keycode, .. } => {
           if pressed {
-            match keycode {
-              SDLK_x => {
-                  zoom *= zoom_strength;
-              }
-              SDLK_z => {
-                  zoom /= zoom_strength;
-              }
-              SDLK_DOWN => {
-                pos.1 -= move_speed * zoom;
-              }
-              SDLK_UP => {
-                pos.1 += move_speed * zoom;
-              }
-              SDLK_RIGHT => {
-                pos.0 += move_speed * zoom;
-              }
-              SDLK_LEFT => {
-                pos.0 -= move_speed * zoom;
-              }
-              SDLK_ESCAPE => {
-                  break 'main_loop;
-              }
-              _ => {}
+            keys_pressed.insert(keycode);
+            // Check for escape key immediately
+            if keycode == SDLK_ESCAPE {
+              break 'main_loop;
             }
+          } else {
+            keys_pressed.remove(&keycode);
           }
         }
         _ => (),
       }
+    }
+    
+    // Process all currently pressed keys
+    let relative_speed = move_speed * zoom;
+    
+    if keys_pressed.contains(&SDLK_x) {
+      zoom *= zoom_speed;
+    }
+    if keys_pressed.contains(&SDLK_z) {
+      zoom /= zoom_speed;
+      if zoom > 1.0 {zoom = 1.0}
+    }
+    if keys_pressed.contains(&SDLK_DOWN) {
+      pos.1 -= relative_speed;
+    }
+    if keys_pressed.contains(&SDLK_UP) {
+      pos.1 += relative_speed;
+    }
+    if keys_pressed.contains(&SDLK_RIGHT) {
+      pos.0 += relative_speed;
+    }
+    if keys_pressed.contains(&SDLK_LEFT) {
+      pos.0 -= relative_speed;
     }
     // now the events are clear
     // here's where we could change the world state and draw.
