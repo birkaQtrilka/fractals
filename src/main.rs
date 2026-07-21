@@ -6,10 +6,12 @@ mod mover;
 mod julia_set;
 
 use crate::input_handling::*;
+use crate::julia_set::JuliaSet;
 use crate::mover::MoveData;
-use crate::program::{Mandelbrot};
+use crate::program::{Mandelbrot, Updater};
 
 
+use beryllium::events::SDLK_1;
 use beryllium::{
   events::{Event, SDLK_ESCAPE}, video::GlSwapInterval, *,
 };
@@ -102,24 +104,26 @@ fn main() {
   let mut ctx = Context {
     input_handler: InputHandler::new(),
   };
-  let mover = MoveData::new(0.95,0.02);
-  let mut world= Mandelbrot::new(
-    mover, 
-    "zoom", 
-    "offset", 
-    "assets/shaders/mandelbrot/mandelbrot.fs",
-    250
-  );
-  // let mut world= JuliaSet::new(
-  //   mover, 
-  //   "zoom", 
-  //   "offset", 
-  //   "assets/shaders/mandelbrot/julia-set.fs",
-  //   "julia_const",
-  //   0.001,
-  //   "save-file.txt",
-  //   250
-  // );
+  let mut worlds: Vec<Box<dyn Updater>> = vec![
+    Box::new(Mandelbrot::new(
+      MoveData::new(0.95,0.02), 
+      "zoom", 
+      "offset", 
+      "assets/shaders/mandelbrot/mandelbrot.fs",
+      250
+    )),
+    Box::new(JuliaSet::new(
+      MoveData::new(0.95,0.02), 
+      "zoom", 
+      "offset", 
+      "assets/shaders/mandelbrot/julia-set.fs",
+      "julia_const",
+      0.001,
+      "save-file.txt",
+      250
+    ))
+  ];
+  let mut world_index = 0;
 
   'main_loop: loop {
     ctx.input_handler.update_key_state();
@@ -141,9 +145,11 @@ fn main() {
         _ => (),
       }
     }
-    
-    world.update(&ctx);
-    
+    worlds[world_index].update(&ctx);
+    if ctx.input_handler.is_key_down(SDLK_1) {
+      if world_index == 1 {world_index = 0;}
+      else {world_index = 1;}
+    }    
 
     unsafe {
       glClear(GL_COLOR_BUFFER_BIT);

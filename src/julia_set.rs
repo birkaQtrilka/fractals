@@ -1,19 +1,19 @@
 use std::{ffi::CString, fs::{File, OpenOptions}, io::{BufRead, BufReader, Seek, SeekFrom, Write}};
 
 use beryllium::events::{SDLK_a, SDLK_j, SDLK_k, SDLK_o, SDLK_p, SDLK_q, SDLK_s, SDLK_w};
-use ogl33::{glGetUniformLocation, glUniform2f};
+use ogl33::{glGetUniformLocation, glUniform2f, glUniform4f};
 
-use crate::{Context, input_handling::PressState, mover::MoveData, program::Mandelbrot};
+use crate::{Context, input_handling::PressState, mover::MoveData, program::{Mandelbrot, Updater}};
 
 
 pub struct JuliaSet {
   base: Mandelbrot,
 
   julia_const_location: i32,
-  julia_const: (f32, f32),
-  julia_const_speed: f32,
+  julia_const: (f64, f64),
+  julia_const_speed: f64,
 
-  saved_julia_consts: Vec<(f32, f32)>,
+  saved_julia_consts: Vec<(f64, f64)>,
   saved_julia_const_index: usize,
   save_file: File,
 }
@@ -25,7 +25,7 @@ impl JuliaSet {
     pos_name: &str,
     frag_path: &str,
     julia_const_name: &str,
-    julia_const_speed: f32,
+    julia_const_speed: f64,
     save_file_path: &str,
     max_iterations: u32,
   ) -> JuliaSet {
@@ -56,19 +56,19 @@ impl JuliaSet {
     file.write_all( data.as_bytes()).expect("could not write to file");
   }
 
-  pub fn read_save(mut file: &File) -> Vec<(f32, f32)> {
+  pub fn read_save(mut file: &File) -> Vec<(f64, f64)> {
     let reader = BufReader::new(file);
     file.seek(SeekFrom::Start(0)).expect("could not move cursor");
 
-    let data_list: Vec<(f32, f32)> = reader
+    let data_list: Vec<(f64, f64)> = reader
       .lines()
       .filter_map(|line| line.ok()) // Handle errors, skip bad lines
       .filter(|line| !line.trim().is_empty())
       .filter_map(|line| {
           let parts: Vec<&str> = line.split(',').collect();
           if parts.len() == 2 {
-              let x = parts[0].trim().parse::<f32>().ok()?;
-              let y = parts[1].trim().parse::<f32>().ok()?;
+              let x = parts[0].trim().parse::<f64>().ok()?;
+              let y = parts[1].trim().parse::<f64>().ok()?;
               Some((x, y))
           } else {
               None
@@ -81,7 +81,7 @@ impl JuliaSet {
   pub fn check_for_save(&mut self, ctx: &Context) {
     if ctx.input_handler.get_key(SDLK_o).state == PressState::Down {
       self.saved_julia_consts = JuliaSet::read_save(&self.save_file);
-      self.saved_julia_const_index = self.saved_julia_const_index.clamp(0, self.saved_julia_consts.len()-1); 
+      self.clamp_index();
     }
     if self.saved_julia_consts.len() == 0 {
       return;
@@ -89,17 +89,26 @@ impl JuliaSet {
     
     if ctx.input_handler.get_key(SDLK_j).state == PressState::Down && self.saved_julia_const_index > 0{
       self.saved_julia_const_index -= 1;
-      self.saved_julia_const_index = self.saved_julia_const_index.clamp(0, self.saved_julia_consts.len()-1);
+      self.clamp_index();
       self.julia_const = self.saved_julia_consts.get(self.saved_julia_const_index).copied().unwrap();
+      print!("index {}... coords: ({},{})\n", self.saved_julia_const_index, self.julia_const.0, self.julia_const.1);
+
     }
     if ctx.input_handler.get_key(SDLK_k).state == PressState::Down {
       self.saved_julia_const_index += 1;
-      self.saved_julia_const_index = self.saved_julia_const_index.clamp(0, self.saved_julia_consts.len()-1);    
+      self.clamp_index();
       self.julia_const = self.saved_julia_consts.get(self.saved_julia_const_index).copied().unwrap();
+      print!("index {}... coords: ({},{})\n", self.saved_julia_const_index, self.julia_const.0, self.julia_const.1);
     }
   }
 
-  pub fn update(&mut self, ctx: &Context) {
+  fn clamp_index(&mut self) {
+      self.saved_julia_const_index = self.saved_julia_const_index.clamp(0, self.saved_julia_consts.len()-1); 
+  }
+  
+}
+impl Updater for JuliaSet {
+  fn update(&mut self, ctx: &Context) {
     let input = &ctx.input_handler;
 
     if input.is_key_active(SDLK_a) {
@@ -115,8 +124,12 @@ impl JuliaSet {
       self.julia_const.1 += self.julia_const_speed;
     }
     self.base.update(ctx);
+
+    let split_x = Mandelbrot::to_emulated_double(self.julia_const.0);
+    let split_y = Mandelbrot::to_emulated_double(self.julia_const.1);
+
     unsafe {
-      glUniform2f(self.julia_const_location, self.julia_const.0, self.julia_const.1);
+      glUniform4f(self.julia_const_location, split_x.0, split_x.1, split_y.0, split_y.1 );
     }
 
     self.check_for_save(&ctx);
@@ -125,5 +138,4 @@ impl JuliaSet {
       self.save( &self.save_file);
     }
   }
-
 }

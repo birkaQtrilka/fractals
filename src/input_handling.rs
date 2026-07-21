@@ -43,6 +43,10 @@ impl InputHandler {
     state == PressState::Down || state == PressState::Held 
   }
 
+  pub fn is_key_down(&self, key: SDL_Keycode) -> bool {
+    self.get_key(key).state == PressState::Down
+  }
+
   pub fn activate_key(&mut self, key: SDL_Keycode) {
     let entry = self.keys.entry(key).or_insert(KeyData::none());
     

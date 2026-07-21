@@ -5,7 +5,7 @@ uniform vec2 zoom;
 uniform vec4 offset;
 uniform uint max_iterations;
 
-uniform vec2 julia_const;
+uniform vec4 julia_const;
 
 float map(float value, float oldMin, float oldMax,
           float newMin, float newMax)
@@ -68,8 +68,8 @@ void main() {
     vec2 next_a = ds_add(ds_mul(a,a), -ds_mul(b,b));
     vec2 next_b = ds_mul(vec2(2.0, 0.0), ds_mul(a,b));
 
-    a = ds_add(next_a, vec2(-julia_const.x,  0.0));
-    b = ds_add(next_b, vec2(-julia_const.y,  0.0));
+    a = ds_add(next_a, julia_const.xy);
+    b = ds_add(next_b, julia_const.zw);
     vec2 mag_sq = ds_add(ds_mul(a,a), ds_mul(b,b));
     if (mag_sq.x > 16.0) { break; }
     n++;

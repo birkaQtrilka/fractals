@@ -3,6 +3,9 @@ use std::{ffi::CString, fs};
 use ogl33::*;
 use crate::{Context, learn_opengl::ShaderProgram, mover::MoveData};
 
+pub trait Updater {
+  fn update(&mut self, ctx: &Context);
+}
 
 pub struct Mandelbrot {
   mover: MoveData,
@@ -43,20 +46,26 @@ impl Mandelbrot {
     }
   }
   
-  pub fn update(&mut self, ctx: &Context) {
+  pub fn to_emulated_double(num: f64) -> (f32, f32) {
+    let center_x_hi = num as f32; 
+    let center_x_lo: f32 = (num - center_x_hi as f64) as f32;
+    (center_x_hi, center_x_lo)
+  }
+
+  
+}
+
+impl Updater for Mandelbrot {
+  fn update(&mut self, ctx: &Context) {
+    self.program.use_program();
+
     // Process all currently pressed keys
     self.mover.update(ctx);
 
-    fn to_emulated_double(num: f64) -> (f32, f32) {
-      let center_x_hi = num as f32; 
-      let center_x_lo: f32 = (num - center_x_hi as f64) as f32;
-      (center_x_hi, center_x_lo)
-    }
-
     unsafe {
-      let split_zoom = to_emulated_double(self.mover.zoom);
-      let split_x = to_emulated_double(self.mover.pos.0);
-      let split_y = to_emulated_double(self.mover.pos.1);
+      let split_zoom = Self::to_emulated_double(self.mover.zoom);
+      let split_x = Self::to_emulated_double(self.mover.pos.0);
+      let split_y = Self::to_emulated_double(self.mover.pos.1);
 
       glUniform2f(self.zoom_location, split_zoom.0, split_zoom.1);
       glUniform4f(self.pos_location, split_x.0, split_x.1,split_y.0, split_y.1 );
