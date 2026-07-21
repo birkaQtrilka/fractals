@@ -1,7 +1,7 @@
 use std::{ffi::CString, fs::{File, OpenOptions}, io::{BufRead, BufReader, Seek, SeekFrom, Write}};
 
 use beryllium::events::{SDLK_a, SDLK_j, SDLK_k, SDLK_o, SDLK_p, SDLK_q, SDLK_s, SDLK_w};
-use ogl33::{glGetUniformLocation, glUniform2f, glUniform4f};
+use ogl33::{glGetUniformLocation, glUniform4f};
 
 use crate::{Context, input_handling::PressState, mover::MoveData, program::{Mandelbrot, Updater}};
 
@@ -39,7 +39,7 @@ impl JuliaSet {
       .open(save_file_path)
       .expect("file couldn't be created or opened");
 
-    JuliaSet {
+    let mut set = JuliaSet {
       julia_const_location:  unsafe { glGetUniformLocation(mandelbrot.program.0, julia_const_name.as_ptr()) },
       julia_const: (0.70176, 0.3842),
       julia_const_speed,
@@ -47,7 +47,11 @@ impl JuliaSet {
       saved_julia_const_index: 0,
       base: mandelbrot,
       save_file
-     }
+     };
+    set.saved_julia_consts = JuliaSet::read_save(&set.save_file);
+    set.clamp_index();
+    set.update_julia_const();
+    set
   }
 
   pub fn save(&self, mut file: &File) {
@@ -90,20 +94,24 @@ impl JuliaSet {
     if ctx.input_handler.get_key(SDLK_j).state == PressState::Down && self.saved_julia_const_index > 0{
       self.saved_julia_const_index -= 1;
       self.clamp_index();
-      self.julia_const = self.saved_julia_consts.get(self.saved_julia_const_index).copied().unwrap();
+      self.update_julia_const();
       print!("index {}... coords: ({},{})\n", self.saved_julia_const_index, self.julia_const.0, self.julia_const.1);
 
     }
     if ctx.input_handler.get_key(SDLK_k).state == PressState::Down {
       self.saved_julia_const_index += 1;
       self.clamp_index();
-      self.julia_const = self.saved_julia_consts.get(self.saved_julia_const_index).copied().unwrap();
+      self.update_julia_const();
       print!("index {}... coords: ({},{})\n", self.saved_julia_const_index, self.julia_const.0, self.julia_const.1);
     }
   }
 
+  fn update_julia_const(&mut self){
+    self.julia_const = self.saved_julia_consts.get(self.saved_julia_const_index).copied().unwrap();
+  }
+
   fn clamp_index(&mut self) {
-      self.saved_julia_const_index = self.saved_julia_const_index.clamp(0, self.saved_julia_consts.len()-1); 
+    self.saved_julia_const_index = self.saved_julia_const_index.clamp(0, self.saved_julia_consts.len()-1); 
   }
   
 }
