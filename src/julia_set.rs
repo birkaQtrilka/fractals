@@ -41,7 +41,7 @@ impl JuliaSet {
 
     let mut set = JuliaSet {
       julia_const_location:  unsafe { glGetUniformLocation(mandelbrot.program.0, julia_const_name.as_ptr()) },
-      julia_const: (0.70176, 0.3842),
+      julia_const: (-0.70176, -0.3842),
       julia_const_speed,
       saved_julia_consts: Vec::new(),
       saved_julia_const_index: 0,
@@ -49,8 +49,10 @@ impl JuliaSet {
       save_file
      };
     set.saved_julia_consts = JuliaSet::read_save(&set.save_file);
-    set.clamp_index();
-    set.update_julia_const();
+    if set.saved_julia_consts.len() > 0 {
+      set.clamp_index();
+      set.update_julia_const();
+    }
     set
   }
 
@@ -85,6 +87,9 @@ impl JuliaSet {
   pub fn check_for_save(&mut self, ctx: &Context) {
     if ctx.input_handler.get_key(SDLK_o).state == PressState::Down {
       self.saved_julia_consts = JuliaSet::read_save(&self.save_file);
+      if self.saved_julia_consts.len() == 0 {
+        return;
+      }
       self.clamp_index();
     }
     if self.saved_julia_consts.len() == 0 {
