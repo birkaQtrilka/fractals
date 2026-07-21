@@ -1,8 +1,10 @@
 #version 330 core
 in vec2 uv;
 out vec4 final_color;
-uniform float zoom;
-uniform vec2 offset;
+uniform vec2 zoom;
+uniform vec4 offset;
+uniform uint max_iterations;
+
 float map(float value, float oldMin, float oldMax,
           float newMin, float newMax)
 {
@@ -10,25 +12,77 @@ float map(float value, float oldMin, float oldMax,
          (value - oldMin) * (newMax - newMin) /
          (oldMax - oldMin);
 }
-// vec2 where x is number and y is 10 to the power
+
+vec2 ds_add(vec2 a, vec2 b) {
+    float sum_hi = a.x + b.x;
+    
+    float temp = sum_hi - a.x;
+    float error = (a.x - (sum_hi - temp)) + (b.x - temp);
+    
+    float sum_lo = error + a.y + b.y;
+    
+    float final_hi = sum_hi + sum_lo;
+    float final_lo = sum_lo - (final_hi - sum_hi);
+    
+    return vec2(final_hi, final_lo);
+}
+
+vec2 split(float a) {
+    float temp = 4097.0 * a;
+    float hi = temp - (temp - a);
+    float lo = a - hi;
+    return vec2(hi, lo);
+}
+
+vec2 ds_mul(vec2 a, vec2 b) {
+    float prod_hi = a.x * b.x;
+    
+    vec2 a_split = split(a.x);
+    vec2 b_split = split(b.x);
+    
+    float err = ((a_split.x * b_split.x - prod_hi) 
+                + a_split.x * b_split.y 
+                + a_split.y * b_split.x) 
+                + a_split.y * b_split.y;
+                
+    err += a.x * b.y + a.y * b.x;
+    
+    float final_hi = prod_hi + err;
+    float final_lo = err - (final_hi - prod_hi);
+    
+    return vec2(final_hi, final_lo);
+}
+
 void main() {
-  int max_iterations = 100;
-  int n = 0;
-  float a = map(uv.x, 0, 1, -2 * zoom, 2 * zoom);
-  float b = map(uv.y, 0, 1, -2 * zoom, 2 * zoom); 
-  a += offset.x;
-  b += offset.y;
-  float orig_a = a;
-  float orig_b = b;
+  uint n = 0;
+  vec2 mapped_a = vec2(map(uv.x, 0, 1, -2, 2), 0.0);
+  vec2 mapped_b = vec2(map(uv.y, 0, 1, -2, 2), 0.0);
+  vec2 a = ds_mul( mapped_a, zoom);
+  vec2 b = ds_mul( mapped_b, zoom); 
+  a = ds_add(a, offset.xy);
+  b = ds_add(b, offset.zw);
+
+  vec2 orig_a = a;
+  vec2 orig_b = b;
+
   while (n < max_iterations) {
-    float next_a = a * a - b * b;
-    float next_b = 2 * a * b;
-    a = next_a + orig_a;
-    b = next_b + orig_b;
-    if(abs(a+b) > 16) { break; }
+    vec2 next_a = ds_add(ds_mul(a,a), -ds_mul(b,b));
+    vec2 next_b = ds_mul(vec2(2.0, 0.0), ds_mul(a,b));
+
+
+    a = ds_add(next_a, orig_a);
+    b = ds_add(next_b, orig_b);
+    vec2 mag_sq = ds_add(ds_mul(a,a), ds_mul(b,b));
+    if (mag_sq.x > 16.0) { break; }
     n++;
   }
-  float bright = map(n, 0, max_iterations, 0, 1);
-  if(n == max_iterations) bright = 0;
-  final_color = vec4(bright, bright, 0.2, 1.0);
+
+  float speed = 0.2f;
+  float r = map( sin(float(n)*speed ), -1,1, 0, 1);
+  float g = map( sin(float(n)*speed + 30), -1,1, 0, 1);
+  float b1 = map( sin(float(n)*speed +10), -1,1, 0, 1);
+  vec4 col = vec4(r,g,b1, 1.0);
+  
+  if(n == max_iterations) col = vec4(0,0,0,1);
+  final_color = col;
 }

@@ -2,18 +2,17 @@
 mod learn_opengl;
 mod program;
 mod input_handling;
+mod mover;
 
-use std::collections::HashMap;
-use std::{collections::HashSet};
 use crate::input_handling::*;
-use crate::program::{Mandelbrot, Programm};
+use crate::mover::MoveData;
+use crate::program::{JuliaSet, Mandelbrot};
 
-use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
+use std::fs::{OpenOptions};
 
 use beryllium::events::SDLK_p;
 use beryllium::{
-  events::{Event, SDL_Keycode, SDLK_ESCAPE}, video::GlSwapInterval, *,
+  events::{Event, SDLK_ESCAPE}, video::GlSwapInterval, *,
 };
 use ogl33::*;
 use learn_opengl::{
@@ -110,25 +109,24 @@ fn main() {
   let mut ctx = Context {
     input_handler: InputHandler::new(),
   };
-  
-  // let mut world= Mandelbrot::new(0.95, 0.02, "zoom", "offset", 
-  // "assets/shaders/mandelbrot/mandelbrot.fs");
+  let mover = MoveData::new(0.95,0.02);
   let mut world= Mandelbrot::new(
-    0.95, 
-    0.02, 
+    mover, 
     "zoom", 
     "offset", 
-    "julia_const",
-    0.001,
-    "assets/shaders/mandelbrot/julia-set.fs",
+    "assets/shaders/mandelbrot/mandelbrot.fs",
+    250
   );
-  // let mut world= Mandelbrot::new(0.95, 0.02, "zoom", "offset");
-  // let mut file = File::create("save-file.txt");
-  let mut file = OpenOptions::new()
-    .create(true)
-    .append(true)
-    .open("save-file.txt")
-    .expect("file couldn't be created or opened");
+  // let mut world= JuliaSet::new(
+  //   mover, 
+  //   "zoom", 
+  //   "offset", 
+  //   "assets/shaders/mandelbrot/julia-set.fs",
+  //   "julia_const",
+  //   0.001,
+  //   "save-file.txt",
+  //   250
+  // );
 
   'main_loop: loop {
     ctx.input_handler.update_key_state();
@@ -152,10 +150,7 @@ fn main() {
     }
     
     world.update(&ctx);
-
-    if ctx.input_handler.get_key(SDLK_p).state == PressState::Down {
-      world.save(&mut file);
-    }
+    
 
     unsafe {
       glClear(GL_COLOR_BUFFER_BIT);
