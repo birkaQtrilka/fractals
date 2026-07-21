@@ -10,10 +10,10 @@ pub trait Programm{
 }
 
 pub struct Mandelbrot {
-  zoom: f32,
-  zoom_speed: f32,
-  pos: (f32, f32),
-  move_speed: f32,
+  zoom: f64,
+  zoom_speed: f64,
+  pos: (f64, f64),
+  move_speed: f64,
   zoom_location: i32,
   pos_location: i32,
 
@@ -24,7 +24,7 @@ pub struct Mandelbrot {
 }
 
 impl Mandelbrot {
-  pub fn new(zoom_speed: f32, move_speed: f32, zoom_name: &str, pos_name: &str,
+  pub fn new(zoom_speed: f64, move_speed: f64, zoom_name: &str, pos_name: &str,
     julia_const_name: &str,
     julia_const_speed: f32,
     frag_path: &str) -> Mandelbrot {
@@ -55,6 +55,12 @@ impl Mandelbrot {
   pub fn save(&self, mut file: &File) {
     let data = format!("{},{}\n", self.julia_const.0, self.julia_const.1);
     file.write_all( data.as_bytes()).expect("could not write to file");
+  }
+
+  pub fn to_emulated_double(num: f64) -> (f32, f32) {
+    let center_x_hi = num as f32; 
+    let center_x_lo: f32 = (num - center_x_hi as f64) as f32;
+    (center_x_hi, center_x_lo)
   }
 
 }
@@ -97,9 +103,20 @@ impl Programm for Mandelbrot {
     if input.is_key_active(SDLK_w) {
       self.julia_const.1 += self.julia_const_speed;
     }
+
+    fn to_emulated_double(num: f64) -> (f32, f32) {
+      let center_x_hi = num as f32; 
+      let center_x_lo: f32 = (num - center_x_hi as f64) as f32;
+      (center_x_hi, center_x_lo)
+    }
+
     unsafe {
-      glUniform1f(self.zoom_location, self.zoom);
-      glUniform2f(self.pos_location, self.pos.0, self.pos.1);
+      let split_zoom = to_emulated_double(self.zoom);
+      let split_x = to_emulated_double(self.pos.0);
+      let split_y = to_emulated_double(self.pos.1);
+
+      glUniform2f(self.zoom_location, split_zoom.0, split_zoom.1);
+      glUniform4f(self.pos_location, split_x.0, split_x.1,split_y.0, split_y.1 );
       glUniform2f(self.julia_const_location, self.julia_const.0, self.julia_const.1);
     }
   }
