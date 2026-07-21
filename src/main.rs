@@ -3,14 +3,13 @@ mod learn_opengl;
 mod program;
 mod input_handling;
 mod mover;
+mod julia_set;
 
 use crate::input_handling::*;
 use crate::mover::MoveData;
-use crate::program::{JuliaSet, Mandelbrot};
+use crate::program::{Mandelbrot};
 
-use std::fs::{OpenOptions};
 
-use beryllium::events::SDLK_p;
 use beryllium::{
   events::{Event, SDLK_ESCAPE}, video::GlSwapInterval, *,
 };
@@ -24,19 +23,13 @@ use learn_opengl::{
 
 const WINDOW_TITLE: &str = "Fractals";
 type Vertex = [f32; 3];
-// type TriIndexes = [u32; 3];
 
-
-// const VERTICES: [Vertex; 4] =
-//   [[0.5, 0.5, 0.0], [0.5, -0.5, 0.0], [-0.5, -0.5, 0.0], [-0.5, 0.5, 0.0]];
 const VERTICES: [Vertex; 3] =
   [[-1.0, -1.0, 0.0], [-1.0, 3.0, 0.0], [3.0, -1.0, 0.0]];
 
-// const INDICES: [TriIndexes; 2] = [[0, 1, 3], [1, 2, 3]];
 struct Context {
   input_handler: InputHandler,
 }
-
 
 fn main() {
 
@@ -53,8 +46,8 @@ fn main() {
   }
   let win_args = video::CreateWinArgs {
         title: WINDOW_TITLE,
-        width: 1200,
-        height: 1000,
+        width: 1100,
+        height: 750,
         allow_high_dpi: true,
         borderless: false,
         resizable: false,
