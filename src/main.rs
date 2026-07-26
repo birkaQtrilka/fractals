@@ -4,7 +4,9 @@ mod program;
 mod input_handling;
 mod mover;
 mod julia_set;
+mod flow_field;
 
+use crate::flow_field::Field;
 use crate::input_handling::*;
 use crate::julia_set::JuliaSet;
 use crate::mover::MoveData;
@@ -34,6 +36,8 @@ struct Context {
 }
 
 fn main() {
+  let field = Field::new(100.0,300, 300);
+
 
   let sdl = Sdl::init(init::InitFlags::EVERYTHING);
   sdl.set_gl_context_major_version(3).unwrap();

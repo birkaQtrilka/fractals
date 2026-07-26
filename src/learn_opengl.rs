@@ -1,4 +1,5 @@
 use ogl33::*;
+use std::os::raw::c_void;
 
 /// Sets the color to clear to when clearing the screen.
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) {
@@ -295,4 +296,97 @@ pub enum PolygonMode {
 /// Sets the font and back polygon mode to the mode given.
 pub fn polygon_mode(mode: PolygonMode) {
   unsafe { glPolygonMode(GL_FRONT_AND_BACK, mode as GLenum) };
+}
+
+
+pub fn create_gl_texture_from_img(file_path: &str) -> u32 {
+  let img = image::open(file_path).expect("Failed to load texture file");
+  
+  let img = img.flipv();
+  let rgba = img.into_rgba8();
+  let (width, height) = rgba.dimensions();
+  let raw_data = rgba.as_raw();
+  unsafe {
+    let mut texture_id: u32 = 0;
+    glGenTextures(1, &mut texture_id);
+    
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR as i32);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR as i32);
+    
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA8 as i32,
+        width as i32,
+        height as i32,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        raw_data.as_ptr() as *const c_void
+      );
+      glGenerateMipmap(GL_TEXTURE_2D);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    texture_id
+  }
+}
+
+
+pub fn create_gl_texture_from_bytes(width: u32, height: u32, data: &[u8]) -> u32 {
+    assert_eq!(
+        data.len(),
+        (width * height * 4) as usize,
+        "Data length does not match width * height * 4"
+    );
+    unsafe {
+
+      let mut texture_id: u32 = 0;
+      glGenTextures(1, &mut texture_id);
+      glBindTexture(GL_TEXTURE_2D, texture_id);
+      
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT as i32);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT as i32);
+      
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST as i32);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST as i32);
+      
+      glTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        GL_RGBA8 as i32,
+        width as i32,
+        height as i32,
+        0,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        data.as_ptr() as *const c_void,
+      );
+      
+      glGenerateMipmap(GL_TEXTURE_2D);
+      
+      glBindTexture(GL_TEXTURE_2D, 0);
+      
+      texture_id
+    }
+}
+
+/// A handy helper that generates a texture using a function/closure for each pixel.
+pub fn generate_texture<F>(width: u32, height: u32, mut pixel_color_func: F) -> Vec<u8>
+where
+    F: FnMut(u32, u32) -> [u8; 4],
+{
+    let mut pixel_data = Vec::with_capacity((width * height * 4) as usize);
+
+    for y in 0..height {
+        for x in 0..width {
+            let rgba = pixel_color_func(x, y);
+            
+            pixel_data.extend_from_slice(&rgba);
+        }
+    }
+    pixel_data
+    // create_gl_texture_from_bytes(width, height, &pixel_data)
 }
