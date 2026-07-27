@@ -35,8 +35,29 @@ struct Context {
   input_handler: InputHandler,
 }
 
+fn map_range(val: f64, in_min: f64, in_max: f64, out_min: u32, out_max: u32) -> u32 {
+    let safe_val = val.max(0.000000000001);
+    let safe_in_min = in_min.max(0.000000000001);
+    let safe_in_max = in_max.max(0.000000000001);
+
+    let log_val = safe_val.log10();
+    let log_in_min = safe_in_min.log10();
+    let log_in_max = safe_in_max.log10();
+    
+    let out_min_f = out_min as f64;
+    let out_max_f = out_max as f64;
+    
+    let mapped = (log_val - log_in_min) / (log_in_max - log_in_min) * (out_max_f - out_min_f) + out_min_f;
+    
+    // let clamp_min = out_min_f.min(out_max_f);
+    // let clamp_max = out_min_f.max(out_max_f);
+    
+    // mapped.clamp(clamp_min, clamp_max).round() as u32
+    mapped.round() as u32
+}
+
 fn main() {
-  let field = Field::new(100.0,300, 300);
+  // let field = Field::new(100.0,300, 300);
 
 
   let sdl = Sdl::init(init::InitFlags::EVERYTHING);

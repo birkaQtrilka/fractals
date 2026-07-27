@@ -1,7 +1,7 @@
 use std::{ffi::CString, fs};
 
 use ogl33::*;
-use crate::{Context, learn_opengl::ShaderProgram, mover::MoveData};
+use crate::{Context, learn_opengl::ShaderProgram, map_range, mover::MoveData};
 
 pub trait Updater {
   fn update(&mut self, ctx: &Context);
@@ -66,10 +66,11 @@ impl Updater for Mandelbrot {
       let split_zoom = Self::to_emulated_double(self.mover.zoom);
       let split_x = Self::to_emulated_double(self.mover.pos.0);
       let split_y = Self::to_emulated_double(self.mover.pos.1);
-
+      let new_val =map_range( self.mover.zoom, 0.000000000000001, 1.0, 600, 20);
+      // print!("{},  {}\n", new_val, self.mover.zoom,);
       glUniform2f(self.zoom_location, split_zoom.0, split_zoom.1);
       glUniform4f(self.pos_location, split_x.0, split_x.1,split_y.0, split_y.1 );
-      glUniform1ui(self.max_iterations_location, self.max_iterations);
+      glUniform1ui(self.max_iterations_location, new_val );
     }
   }
 }

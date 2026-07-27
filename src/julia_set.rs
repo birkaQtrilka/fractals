@@ -138,6 +138,7 @@ impl Updater for JuliaSet {
     }
     self.base.update(ctx);
 
+
     let split_x = Mandelbrot::to_emulated_double(self.julia_const.0);
     let split_y = Mandelbrot::to_emulated_double(self.julia_const.1);
 
