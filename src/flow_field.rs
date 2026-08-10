@@ -3,9 +3,6 @@ use noise::{NoiseFn, Perlin, Seedable};
 use crate::learn_opengl::generate_texture;
 pub struct Field {
   scale: f64,
-  // width: i32,
-  // height: i32,
-
 }
 
 impl Field {

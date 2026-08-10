@@ -5,6 +5,9 @@ mod input_handling;
 mod mover;
 mod julia_set;
 mod flow_field;
+mod smoke_grid;
+mod bilinear;
+mod smoke_data;
 
 use crate::flow_field::Field;
 use crate::input_handling::*;
