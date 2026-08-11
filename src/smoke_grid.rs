@@ -8,10 +8,10 @@ pub struct Grid {
   pub pressures: Vec<f32>,
   pub width: usize,
   pub height: usize,
+  pub smoke: Vec<f32>,
   solid_map: Vec<bool>,
   velocities: Vec<Pair>, //to do: flatten it later
   temp_velocities: Vec<Pair>,
-  smoke: Vec<f32>,
   temp_smoke: Vec<f32>,
   
   cycle_data: Vec<CellData>,
@@ -326,7 +326,7 @@ impl Grid {
     self.smoke.copy_from_slice(&self.temp_smoke);
   }
 
-  fn set_velocities(
+  pub fn set_velocities(
     &mut self,
     pressure_index: usize,
     t: Option<f32>,

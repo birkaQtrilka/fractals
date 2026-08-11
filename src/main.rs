@@ -38,6 +38,8 @@ const VERTICES: [Vertex; 3] =
 
 struct Context {
   input_handler: InputHandler,
+  window_w: i32,
+  window_h: i32,
 }
 
 fn map_range(val: f64, in_min: f64, in_max: f64, out_min: u32, out_max: u32) -> u32 {
@@ -73,6 +75,7 @@ fn main() {
       .set_gl_context_flags(video::GlContextFlags::FORWARD_COMPATIBLE)
       .unwrap();
   }
+
   let win_args = video::CreateWinArgs {
         title: WINDOW_TITLE,
         width: 1100,
@@ -81,11 +84,10 @@ fn main() {
         borderless: false,
         resizable: false,
   };
-
+  
   let win = sdl
     .create_gl_window(win_args)
     .expect("couldn't make a window and context");
-  
   unsafe {
     load_gl_with(|f_name| win.get_proc_address(f_name as *const u8));
     let _ = win.set_swap_interval(GlSwapInterval::Vsync);
@@ -127,9 +129,11 @@ fn main() {
 
   learn::polygon_mode(learn::PolygonMode::Fill);
 
-  
+  let resolotion = win.get_window_size();  
   let mut ctx = Context {
     input_handler: InputHandler::new(),
+    window_w: resolotion.0,
+    window_h: resolotion.1,
   };
   // let smoke = 
   let mut worlds: Vec<Box<dyn Updater>> = vec![
@@ -152,7 +156,7 @@ fn main() {
     )),
     Box::new(Smoke::start(700.0, 1.0, 0.001))
   ];
-  let mut world_index = 0;
+  let mut world_index = 2;
 
   'main_loop: loop {
     ctx.input_handler.update_key_state();

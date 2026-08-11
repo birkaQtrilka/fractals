@@ -25,6 +25,10 @@ impl Smoke {
       time_step, 
       (width / w as f32, width / w as f32)
     )));
+    let mut grid_mut = grid.borrow_mut();
+    grid_mut.smoke[2*w-5] = 1.0;
+    grid_mut.smoke[w-3] = 1.0;
+    drop(grid_mut);
     let drawer = SmokeDrawer::new(Rc::clone(&grid), width);
 
     Smoke {
@@ -59,6 +63,7 @@ impl Updater for Smoke {
     // let simulation_updated = false;
 
     // while accumulator >= fixed_time_step_ms {
+      // grid_mut.set_velocities(140, None, None, None, Some(10.0));
       grid_mut.iterate_pressure_updates();
 
       // self.interactor?.applyVelocities();
@@ -82,6 +87,7 @@ struct SmokeDrawer {
 
   u_cell_size: i32,
   u_size: i32,
+  u_resolution: i32,
   program: ShaderProgram,
   texture_id: u32,
 }
@@ -98,6 +104,7 @@ impl SmokeDrawer {
     let u_cell_size = program.get_unif_location("cellSize");
     let u_size = program.get_unif_location("size");
     let u_grid_texture = program.get_unif_location("gridTexture");
+    let u_resolution = program.get_unif_location("resolution");
     unsafe { glUniform1i(u_grid_texture, 0); }
 
     // Create the OpenGL texture
@@ -116,7 +123,8 @@ impl SmokeDrawer {
       u_size,
       program,
       texture_id,
-      pixel_size
+      pixel_size,
+      u_resolution
     }
   }
 }
@@ -124,10 +132,12 @@ impl SmokeDrawer {
 impl Updater for SmokeDrawer {
   fn update(&mut self, ctx: &Context) {
     let grid_ref = self.grid.borrow();
+    self.program.use_program();
 
     unsafe {
       glUniform1f(self.u_size, self.pixel_size );
       glUniform1f(self.u_cell_size, self.pixel_size / grid_ref.width as f32);
+      glUniform2i(self.u_resolution,ctx.window_w, ctx.window_h);
 
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, self.texture_id);
@@ -141,7 +151,7 @@ impl Updater for SmokeDrawer {
         0,
         GL_RED,
         GL_FLOAT,
-        grid_ref.pressures.as_ptr() as *const _
+        grid_ref.smoke.as_ptr() as *const _
       );
     }
   }

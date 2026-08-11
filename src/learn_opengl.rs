@@ -285,6 +285,7 @@ impl ShaderProgram {
   pub fn get_unif_location(&self, name: &str) -> i32 {
     unsafe { return glGetUniformLocation(self.0, CString::new(name).unwrap().as_ptr()) }
   }
+
 }
 
 /// The polygon display modes you can set.
