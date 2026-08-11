@@ -23,7 +23,7 @@ use crate::smoke_runner::Smoke;
 
 use beryllium::events::SDLK_1;
 use beryllium::{
-  events::{Event, SDLK_ESCAPE}, video::GlSwapInterval, *,
+  video::GlSwapInterval, *,
 };
 use ogl33::*;
 use learn_opengl::{
@@ -80,12 +80,12 @@ fn main() {
   }
 
   let win_args = video::CreateWinArgs {
-        title: WINDOW_TITLE,
-        width: 1100,
-        height: 750,
-        allow_high_dpi: true,
-        borderless: false,
-        resizable: false,
+    title: WINDOW_TITLE,
+    width: 750,
+    height: 750,
+    allow_high_dpi: true,
+    borderless: false,
+    resizable: false,
   };
   
   let win = sdl
@@ -157,30 +157,24 @@ fn main() {
       "save-file.txt",
       250
     )),
-    Box::new(Smoke::start(700.0, 1.0, 0.001))
+    Box::new(Smoke::start(
+      700.0, 
+      1.0, 
+      0.001, 
+      &mut ctx.input_handler
+    )),
   ];
   let mut world_index = 2;
 
   'main_loop: loop {
-    ctx.input_handler.update_key_state();
-
+    
+    ctx.input_handler.main_loop();
     while let Some((event, _remaining)) = sdl.poll_events() {
-      match event {
-        Event::Quit => break 'main_loop,
-        Event::Key { pressed, keycode, .. } => {
-          if pressed {
-            ctx.input_handler.activate_key(keycode);
-            // Check for escape key immediately
-            if keycode == SDLK_ESCAPE {
-              break 'main_loop;
-            }
-          } else {
-            ctx.input_handler.deactivate_key(keycode);
-          }
-        }
-        _ => (),
+      if ctx.input_handler.process_events(event) {
+        break 'main_loop;
       }
     }
+
     worlds[world_index].update(&ctx);
     if ctx.input_handler.is_key_down(SDLK_1) {
       if world_index == worlds.len()-1 {world_index = 0;}

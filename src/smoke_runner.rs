@@ -1,6 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::{RefCell, RefMut}, rc::Rc};
 
-use crate::{Context, program::Updater, smoke_drawer::SmokeDrawer, smoke_grid::Grid};
+use queues::IsQueue;
+
+use crate::{Context, input_handling::InputHandler, program::Updater, smoke_drawer::SmokeDrawer, smoke_grid::Grid, smoke_interactor::GridInteractor};
 
 pub struct Smoke {
   pub width: f32,
@@ -8,6 +10,7 @@ pub struct Smoke {
   // accumulator: f32,
   grid: Rc<RefCell<Grid>>,
   drawer: SmokeDrawer,
+  interactor: Rc<RefCell<GridInteractor>>,
 }
 
 impl Smoke {
@@ -15,6 +18,7 @@ impl Smoke {
     width: f32,
     density: f32,
     time_step: f32,
+    input: &mut InputHandler,
   ) -> Smoke {
     let w = 40_usize;
     let grid = Rc::new(RefCell::new(Grid::new(
@@ -24,75 +28,50 @@ impl Smoke {
       time_step, 
       (width / w as f32, width / w as f32)
     )));
-    // let mut grid_mut = grid.borrow_mut();
-    // grid_mut.smoke[2*w-5] = 1.0;
-    // grid_mut.smoke[w*w/ 2 + w/2] = 1.0;
-    // drop(grid_mut);
-    let drawer = SmokeDrawer::new(Rc::clone(&grid), width);
 
+    let drawer = SmokeDrawer::new(Rc::clone(&grid), width);
+    let interactor = Rc::new(RefCell::new(
+      GridInteractor::new(Rc::clone(&grid), 30.0, 100.0)
+    ));
+    GridInteractor::attach(&interactor, input);
     Smoke {
       width,
-      // last_time: 0.0,
-      // accumulator: 0.0,
       drawer,
       grid,
+      interactor
     }
   }
 
-  // pub fn applyVelocities(){
-  //   while(!this.velocity_q.isEmpty()) {
-  //     const data = this.velocity_q.dequeue();
-  //     if(!data) continue;
-  //     this.grid.setVelocities(data.i,data.t, data.l, data.b, data.r);
-  //   }
-  // }
+  pub fn apply_velocities(&self, grid: &mut RefMut<'_, Grid>, interactor: &mut RefMut<'_, GridInteractor>){
+    while interactor.velocity_q.size() > 0 {
+      let data = interactor.velocity_q.remove().expect("couldn't dequeue");
+      grid.set_velocities(data.i,data.t, data.l, data.b, data.r);
+    }
+  }
   
-  // pub fn applySmoke(){
-  //   while(!this.smoke_q.isEmpty()) {
-  //     const data = this.smoke_q.dequeue();
-  //     if(!data) continue;
-  //     this.grid.smoke[data.i] = data.t
-  //   }
-  // }
+  pub fn apply_smoke(&self, grid: &mut RefMut<'_, Grid>, interactor: &mut RefMut<'_, GridInteractor>){
+    while interactor.smoke_q.size() > 0 {
+      let data = interactor.smoke_q.remove().expect("couldn't dequeue");
+      grid.smoke[data.i] = data.t;
+    }
+  }
 }
 
 impl Updater for Smoke {
   fn update(&mut self, ctx: &Context) {
     let mut grid_mut = self.grid.borrow_mut();
+    let mut interactor_mut = self.interactor.borrow_mut();
+
+    self.apply_velocities(&mut grid_mut, &mut interactor_mut);
+    self.apply_smoke(&mut grid_mut, &mut interactor_mut);
     
-    // if last_time == 0 {
-      // last_time = 10;
-    // }
-
-    // let delta_time = current_time - last_time;
-    // last_time = current_time;
-
-    // if delta_time > 250 {
-      // delta_time = 250; 
-    // }
-
-    // accumulator += delta_time;
-
-    // let simulation_updated = false;
-
-    // while accumulator >= fixed_time_step_ms {
-    let w = grid_mut.width;
-      grid_mut.set_velocities(w*w/ 2 + w/2 - 2, None, None, None, Some(600.0));
-    // grid_mut.smoke[] = 1.0;
-    grid_mut.smoke[w*w/ 2 + w/2] = 1.0;
-      grid_mut.iterate_pressure_updates();
-
-      // self.interactor?.applyVelocities();
-      // self.interactor?.applySmoke();
-      grid_mut.update_velocities();
-      grid_mut.advect_velocities();
-      grid_mut.advect_smoke();
-      // accumulator -= fixed_time_step_ms;
-      // simulation_updated = true;
-    // }
+    grid_mut.iterate_pressure_updates();
+    grid_mut.update_velocities();
+    grid_mut.advect_velocities();
+    grid_mut.advect_smoke();
+    
     drop(grid_mut);
-    // if simulation_updated {
-      self.drawer.update(ctx);
-    // }
+    
+    self.drawer.update(ctx);
   }
 }
