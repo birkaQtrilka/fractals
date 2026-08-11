@@ -25,10 +25,10 @@ impl Smoke {
       time_step, 
       (width / w as f32, width / w as f32)
     )));
-    let mut grid_mut = grid.borrow_mut();
-    grid_mut.smoke[2*w-5] = 1.0;
-    grid_mut.smoke[w-3] = 1.0;
-    drop(grid_mut);
+    // let mut grid_mut = grid.borrow_mut();
+    // grid_mut.smoke[2*w-5] = 1.0;
+    // grid_mut.smoke[w*w/ 2 + w/2] = 1.0;
+    // drop(grid_mut);
     let drawer = SmokeDrawer::new(Rc::clone(&grid), width);
 
     Smoke {
@@ -63,7 +63,10 @@ impl Updater for Smoke {
     // let simulation_updated = false;
 
     // while accumulator >= fixed_time_step_ms {
-      // grid_mut.set_velocities(140, None, None, None, Some(10.0));
+    let w = grid_mut.width;
+      grid_mut.set_velocities(w*w/ 2 + w/2 - 2, None, None, None, Some(600.0));
+    // grid_mut.smoke[] = 1.0;
+    grid_mut.smoke[w*w/ 2 + w/2] = 1.0;
       grid_mut.iterate_pressure_updates();
 
       // self.interactor?.applyVelocities();
