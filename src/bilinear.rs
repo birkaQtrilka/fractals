@@ -46,14 +46,14 @@ pub fn sample_u(px: f32, py: f32, map: &[Pair], width: usize, height: usize) -> 
 
 pub fn sample_v(px: f32, py: f32, map: &[Pair], width: usize, height: usize) -> f32 {
   // V velocities are centered horizontally on the face, so we shift X by 0.5
-  let sampleX = px - 0.5;
+  let sample_x = px - 0.5;
 
-  let x0 = sampleX.floor() as usize;
+  let x0 = sample_x.floor() as usize;
   let y0 = py.floor() as usize;
   let x1 = x0 + 1;
   let y1 = y0 + 1;
 
-  let tx = sampleX - x0 as f32;
+  let tx = sample_x - x0 as f32;
   let ty = py - y0 as f32;
 
   let v00 = get_v(x0, y0, map, width, height);
@@ -74,27 +74,27 @@ pub fn lerp(start: f32, stop: f32, amt: f32) -> f32 {
   start + (stop - start) * amt
 }
 
-pub fn sampleSmoke(map: &[f32], px: f32, py: f32, width: usize, height: usize) -> f32{
+pub fn sample_smoke(map: &[f32], px: f32, py: f32, width: usize, height: usize) -> f32{
   // move point so it's always in the top left quadrant
   let px = px - 0.5;
 	let py = py - 0.5;
 	
   let x = px.floor() as usize;
   let y = py.floor() as usize;
-  let xFrac = clamp01(px - x as f32);
-  let yFrac = clamp01(py - y as f32);
+  let x_frac = clamp01(px - x as f32);
+  let y_frac = clamp01(py - y as f32);
   
   let x0 = x.clamp(0, width - 1);
   let x1 = (x + 1).clamp(0, width - 1);
   let y0 = y.clamp(0, height - 1);
   let y1 = (y + 1).clamp(0, height - 1);
   
-  let bottomLeft  = map[x0 + y0 * width];
-  let bottomRight = map[x1 + y0 * width];
-  let topLeft     = map[x0 + y1 * width];
-  let topRight    = map[x1 + y1 * width];
+  let bottom_left  = map[x0 + y0 * width];
+  let bottom_right = map[x1 + y0 * width];
+  let top_left     = map[x0 + y1 * width];
+  let top_right    = map[x1 + y1 * width];
 
-  let interpolatedTop = lerp(topLeft, topRight, xFrac);
-	let interpolatedBottom = lerp(bottomLeft, bottomRight, xFrac);
-  lerp(interpolatedBottom, interpolatedTop, yFrac)
+  let interpolated_top = lerp(top_left, top_right, x_frac);
+	let interpolated_bottom = lerp(bottom_left, bottom_right, x_frac);
+  lerp(interpolated_bottom, interpolated_top, y_frac)
 }

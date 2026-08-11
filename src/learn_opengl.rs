@@ -1,5 +1,6 @@
 use ogl33::*;
 use std::os::raw::c_void;
+use std::ffi::CString;
 
 /// Sets the color to clear to when clearing the screen.
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) {
@@ -280,6 +281,10 @@ impl ShaderProgram {
       Err(out)
     }
   }
+
+  pub fn get_unif_location(&self, name: &str) -> i32 {
+    unsafe { return glGetUniformLocation(self.0, CString::new(name).unwrap().as_ptr()) }
+  }
 }
 
 /// The polygon display modes you can set.
@@ -333,7 +338,6 @@ pub fn create_gl_texture_from_img(file_path: &str) -> u32 {
     texture_id
   }
 }
-
 
 pub fn create_gl_texture_from_bytes(width: u32, height: u32, data: &[u8]) -> u32 {
     assert_eq!(

@@ -8,12 +8,14 @@ mod flow_field;
 mod smoke_grid;
 mod bilinear;
 mod smoke_data;
+mod smoke_runner;
 
 use crate::flow_field::Field;
 use crate::input_handling::*;
 use crate::julia_set::JuliaSet;
 use crate::mover::MoveData;
 use crate::program::{Mandelbrot, Updater};
+use crate::smoke_runner::Smoke;
 
 
 use beryllium::events::SDLK_1;
@@ -60,9 +62,6 @@ fn map_range(val: f64, in_min: f64, in_max: f64, out_min: u32, out_max: u32) -> 
 }
 
 fn main() {
-  // let field = Field::new(100.0,300, 300);
-
-
   let sdl = Sdl::init(init::InitFlags::EVERYTHING);
   sdl.set_gl_context_major_version(3).unwrap();
   sdl.set_gl_context_minor_version(3).unwrap();
@@ -132,6 +131,7 @@ fn main() {
   let mut ctx = Context {
     input_handler: InputHandler::new(),
   };
+  // let smoke = 
   let mut worlds: Vec<Box<dyn Updater>> = vec![
     Box::new(Mandelbrot::new(
       MoveData::new(0.95,0.02), 
@@ -149,7 +149,8 @@ fn main() {
       0.001,
       "save-file.txt",
       250
-    ))
+    )),
+    Box::new(Smoke::start(700.0, 1.0, 0.001))
   ];
   let mut world_index = 0;
 
@@ -175,8 +176,8 @@ fn main() {
     }
     worlds[world_index].update(&ctx);
     if ctx.input_handler.is_key_down(SDLK_1) {
-      if world_index == 1 {world_index = 0;}
-      else {world_index = 1;}
+      if world_index == worlds.len()-1 {world_index = 0;}
+      else {world_index += 1;}
     }    
 
     unsafe {

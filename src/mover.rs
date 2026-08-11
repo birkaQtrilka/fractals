@@ -19,7 +19,7 @@ impl MoveData {
     }
   }
 
-  pub fn update(&mut self, ctx: &Context) {
+  pub fn  update(&mut self, ctx: &Context) {
     let relative_speed = self.move_speed * self.zoom;
     let input = &ctx.input_handler;
 
