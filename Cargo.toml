@@ -9,4 +9,5 @@ bytemuck = "1.25.1"
 image = "0.25.10"
 noise = "0.9.0"
 ogl33 = { version = "0.2", features = ["debug_error_checks"] }
+queues = "1.1.0"
 rand = "0.10.2"

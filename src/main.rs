@@ -9,8 +9,11 @@ mod smoke_grid;
 mod bilinear;
 mod smoke_data;
 mod smoke_runner;
+mod smoke_drawer;
+mod smoke_interactor;
 
-use crate::flow_field::Field;
+
+// use crate::flow_field::Field;
 use crate::input_handling::*;
 use crate::julia_set::JuliaSet;
 use crate::mover::MoveData;

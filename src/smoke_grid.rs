@@ -17,7 +17,7 @@ pub struct Grid {
   cycle_data: Vec<CellData>,
   density: f32,
   time_step: f32,
-  cell_size: (f32, f32)
+  pub cell_size: (f32, f32)
 }
 
 impl Grid {
@@ -347,7 +347,7 @@ impl Grid {
     self.velocities[vi + self.width + 1] = Pair::new(b.unwrap_or(vel.top), vel.left);
 }
 
-  fn get_velocities(&self, pressure_index: usize) -> Cell {
+  pub fn get_velocities(&self, pressure_index: usize) -> Cell {
     let y = pressure_index / self.width;
     self.get_velocities_y(pressure_index, y)
   }
