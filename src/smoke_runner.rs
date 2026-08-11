@@ -26,7 +26,7 @@ impl Smoke {
       cell_count,
       density, 
       time_step, 
-      (width / cell_count as f32, width / cell_count as f32)
+      width / cell_count as f32
     )));
     {
       Self::init_solid_map(&mut grid.borrow_mut());

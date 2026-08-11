@@ -24,7 +24,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Instant; // <-- Added for time tracking
 
-use beryllium::events::SDLK_1;
+use beryllium::events::{SDLK_1, SDLK_m};
 use beryllium::{
   video::GlSwapInterval, *,
 };
@@ -160,9 +160,9 @@ fn main() {
     )),
     Box::new(Smoke::start(
       700.0, 
-      100,
+      140,
       1.0, 
-      0.02, 
+      0.04, 
       Rc::clone(&ctx.input_handler)
     )),
   ];
@@ -201,15 +201,19 @@ fn main() {
     }
 
     worlds[world_index].update(&ctx);
-    if ctx.input_handler.borrow().is_key_down(SDLK_1) {
-      worlds[world_index].on_disable();
-      
-      if world_index == worlds.len()-1 {world_index = 0;}
-      else {world_index += 1;}
-
-      worlds[world_index].on_enable();
-
-    }    
+    {
+      let inp = ctx.input_handler.borrow();
+      if inp.is_key_down(SDLK_1) {
+        worlds[world_index].on_disable();
+        
+        if world_index == worlds.len()-1 {world_index = 0;}
+        else {world_index += 1;}
+        
+        worlds[world_index].on_enable();
+      } else if inp.is_key_down(SDLK_m) {
+        println!("{}", frames_this_second as f32 / fps_elapsed)
+      }   
+    }
 
     unsafe {
       glClear(GL_COLOR_BUFFER_BIT);

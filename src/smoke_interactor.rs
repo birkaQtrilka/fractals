@@ -109,16 +109,15 @@ impl GridInteractor {
 
     let grid = self.grid.borrow();
 
-    let cw = grid.cell_size.0;
-    let ch = grid.cell_size.1;
+    let cs = grid.cell_size;
 
     // Calculate a bounding box of cells to avoid checking the entire grid
-    let min_x = ((pos.0 - self.brush_radius).floor() / cw).max(0.0).floor() as usize;
-    let max_x = (((pos.0 + self.brush_radius).floor() / cw))
+    let min_x = ((pos.0 - self.brush_radius).floor() / cs).max(0.0).floor() as usize;
+    let max_x = (((pos.0 + self.brush_radius).floor() / cs))
       .min((grid.width - 1) as f32)
       .floor() as usize;
-    let min_y = (((pos.1 - self.brush_radius).floor() / ch)).max(0.0).floor() as usize;
-    let max_y = (((pos.1 + self.brush_radius).floor() / ch))
+    let min_y = (((pos.1 - self.brush_radius).floor() / cs)).max(0.0).floor() as usize;
+    let max_y = (((pos.1 + self.brush_radius).floor() / cs))
       .min((grid.height - 1) as f32)
       .floor() as usize;
 
@@ -140,15 +139,15 @@ impl GridInteractor {
     for cy in min_y..max_y {
       for cx in min_x..max_x {
         let p_index = cy * grid.width + cx;
-        let cell_x_px = cx as f32 * cw;
-        let cell_y_px = cy as f32 * ch;
+        let cell_x_px = cx as f32 * cs;
+        let cell_y_px = cy as f32 * cs;
 
         // Define center points for the 4 edges of the current cell
         let edges = (
-          (cell_x_px + cw / 2.0, cell_y_px), // t
-          (cell_x_px, cell_y_px + ch / 2.0), // l
-          (cell_x_px + cw / 2.0, cell_y_px + ch), // b
-          (cell_x_px + cw, cell_y_px + ch / 2.0), // r
+          (cell_x_px + cs / 2.0, cell_y_px), // t
+          (cell_x_px, cell_y_px + cs / 2.0), // l
+          (cell_x_px + cs / 2.0, cell_y_px + cs), // b
+          (cell_x_px + cs, cell_y_px + cs / 2.0), // r
         );
         let (et, el, eb, er) = edges;
 

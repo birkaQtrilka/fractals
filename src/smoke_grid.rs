@@ -1,5 +1,5 @@
 use crate::bilinear;
-use crate::smoke_data::{Pair, Cell, CellData};
+use crate::smoke_data::{Pair, Cell, SolverData};
 const INVALID: f32 = -100_000_000.0;
 
 pub struct Grid {
@@ -8,14 +8,14 @@ pub struct Grid {
   pub height: usize,
   pub smoke: Vec<f32>,
   pub solid_map: Vec<bool>,
-  velocities: Vec<Pair>, //to do: flatten it later
+  velocities: Vec<Pair>,
   temp_velocities: Vec<Pair>,
   temp_smoke: Vec<f32>,
   
-  cycle_data: Vec<CellData>,
+  cycle_data: Vec<SolverData>,
   density: f32,
   time_step: f32,
-  pub cell_size: (f32, f32)
+  pub cell_size: f32
 }
 
 impl Grid {
@@ -24,7 +24,7 @@ impl Grid {
     height: usize,
     density: f32,
     time_step: f32,
-    cell_size: (f32, f32),
+    cell_size: f32,
   )-> Grid {
     let size = width * height;
     let pressures = vec![0.0_f32; size];
@@ -34,7 +34,7 @@ impl Grid {
     let temp_smoke = vec![0.0_f32; size];
 
     let solid_map = vec![false; size];
-    let cycle_data = Vec::with_capacity(size);
+    let cycle_data = vec![SolverData { rhs: 0.0, inv_total: 0.0 }; size];
 
     let len = pressures.len();
     for i in 0..len {
@@ -84,8 +84,8 @@ impl Grid {
   
   fn sample_bilinear(&self, world_x: f32, world_y: f32, map: &[Pair])-> Pair {
     // Convert world space directly to grid space
-    let px = world_x / self.cell_size.0;
-    let py = world_y / self.cell_size.1;
+    let px = world_x / self.cell_size;
+    let py = world_y / self.cell_size;
 
     // Sample fields independently
     let vx = bilinear::sample_u(px, py, map, self.width, self.height);
@@ -97,47 +97,14 @@ impl Grid {
   }
 
   fn _get_divergence(&self, c: Cell) -> f32 {
-    let gradient_x = (c.r - c.l) / self.cell_size.0 ;
-    let gradient_y = (c.t - c.b) / self.cell_size.1 ;
+    let gradient_x = (c.r - c.l) / self.cell_size ;
+    let gradient_y = (c.t - c.b) / self.cell_size ;
 
     gradient_x + gradient_y
   }
 
   fn is_solid(&self, cell_index: usize) -> bool {
     self.solid_map[cell_index]
-  }
-
-  fn get_pressures(&self, p_index: usize, x: usize, y: usize) -> Cell {
-    
-    let t = if y > 0 { 
-      self.get_pressure(p_index - self.width) 
-    } else { 
-      self.get_pressure(p_index) 
-    };
-    
-    let l = if x > 0 { 
-      self.get_pressure(p_index - 1) 
-    } else { 
-      0.0
-    };
-    
-    let r = if x + 1 < self.width { 
-      self.get_pressure(p_index + 1) 
-    } else { 
-      self.get_pressure(p_index) 
-    };
-    
-    let b = if y + 1 < self.height { 
-      self.get_pressure(p_index + self.width) 
-    } else { 
-      self.get_pressure(p_index) 
-    };
-    
-    Cell::new(t, l, b, r)
-  }
-
-  fn get_pressure(&self, p_index: usize) -> f32 {
-    self.pressures[p_index]
   }
 
   pub fn iterate_pressure_updates(&mut self) {
@@ -149,58 +116,62 @@ impl Grid {
   }
 
   fn prepare_cycle_data(&mut self) {
-    let k = self.time_step / (self.cell_size.0 * self.density);
-
-    self.cycle_data.clear();
+    // scale is constant, compute it once
+    let ady = self.density * self.cell_size / self.time_step;
 
     for i in 0..self.pressures.len() {
-      let x = i % self.width;
-      let y = i / self.width;
-      
       if self.is_solid(i) {
-        self.cycle_data.push(CellData::new(
-          true, x, y, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Cell::new(0.0, 0.0, 0.0, 0.0)
-        ));
+        self.cycle_data[i] = SolverData { rhs: 0.0, inv_total: 0.0 };
         continue;
       }
       
-      let f_t = if y > 0 && !self.is_solid(i - self.width) { 1.0 } else { 0.0 };
-      let f_l = if x > 0 && !self.is_solid(i - 1) { 1.0 } else { 0.0 };
+      let x = i % self.width;
+      let y = i / self.width;
       
-      let f_r = if x + 1 < self.width && !self.is_solid(i + 1) { 1.0 } else { 0.0 };
-      let f_b = if y + 1 < self.height && !self.is_solid(i + self.width) { 1.0 } else { 0.0 };
+      let mut total = 0.0;
+      if y > 0 && !self.is_solid(i - self.width) { total += 1.0; }
+      if x > 0 && !self.is_solid(i - 1) { total += 1.0; }
+      if x + 1 < self.width && !self.is_solid(i + 1) { total += 1.0; }
+      if y + 1 < self.height && !self.is_solid(i + self.width) { total += 1.0; }
       
-      let total = f_t + f_l + f_b + f_r;
+      // Calculate divergence just once
+      let v = self.get_velocities(i);
+      let div = v.r - v.l + v.b - v.t; 
       
-      self.cycle_data.push(CellData::new(
-        false, x, y, total, f_t, f_l, f_b, f_r, k, self.get_velocities(i)
-      ));
+      self.cycle_data[i] = SolverData {
+        rhs: -ady * div,
+        inv_total: if total > 0.0 { 1.0 / total } else { 0.0 }
+      };
     }
   }
 
   fn update_pressures(&mut self) {
     for i in 0..self.pressures.len() {
-      let d = &self.cycle_data[i];
-      if d.solid || d.total == 0.0 {
+      let d = self.cycle_data[i];
+      if d.inv_total == 0.0 {
         self.pressures[i] = 0.0;
         continue;
       }
       
-      let v = d.velocities;
-      let p = self.get_pressures(i, d.x, d.y);
-      let p_sum = p.t * d.flowt + p.l * d.flowl + p.r * d.flowr + p.b * d.flowb;
-      let delta_velocity_sum = v.r * d.flowr - v.l * d.flowl + v.b * d.flowb - v.t * d.flowt; 
+      // No bounds checks needed because the borders are solid!
+      let p_sum =  self.pressures[i - self.width] 
+                      + self.pressures[i - 1] 
+                      + self.pressures[i + 1] 
+                      + self.pressures[i + self.width];
 
-      self.pressures[i] = (p_sum - self.density * self.cell_size.0 * delta_velocity_sum / self.time_step) / d.total; 
+      // Multiplication by inv_total is much faster than division by total
+      self.pressures[i] = (p_sum + d.rhs) * d.inv_total; 
     }
   }
 
-  pub fn update_velocities(&mut self) { 
+pub fn update_velocities(&mut self) { 
+    let k = self.time_step / (self.cell_size * self.density);
+    
     for i in 0..self.pressures.len() {
-      let d = &self.cycle_data[i];
-      let vi = i + d.y;
+      let y = i / self.width;
+      let vi = i + y;
 
-      if d.solid {
+      if self.is_solid(i) {
         self.velocities[vi] = Pair::new(0.0, 0.0);
         continue;
       }
@@ -208,21 +179,14 @@ impl Grid {
       let mut v_top = self.velocities[vi].top;
       let mut v_left = self.velocities[vi].left;
 
-      let is_top_solid  = self.is_solid(i - self.width);
-      let is_left_solid = self.is_solid(i - 1);
-
-      if !is_top_solid {
-        let pc = self.pressures[i];
-        let pt = self.pressures[i - self.width];
-        v_top -= d.k * (pc - pt);
+      if !self.is_solid(i - self.width) {
+        v_top -= k * (self.pressures[i] - self.pressures[i - self.width]);
       } else {
         v_top = 0.0; 
       }
 
-      if !is_left_solid {
-        let pc = self.pressures[i];
-        let pl = self.pressures[i - 1];
-        v_left -= d.k * (pc - pl);
+      if !self.is_solid(i - 1) {
+        v_left -= k * (self.pressures[i] - self.pressures[i - 1]);
       } else {
         v_left = 0.0;
       }
@@ -234,9 +198,11 @@ impl Grid {
   pub fn advect_velocities(&mut self) {
     for i in 0..self.pressures.len() {
       let d = &self.cycle_data[i];
-      let vi = i + d.y;
+      let y = i / self.width;
 
-      if d.solid {
+      let vi = i + y;
+
+      if self.is_solid(i) {
         self.velocities[vi] = Pair::new(0.0, 0.0);
         continue;
       }
@@ -245,9 +211,11 @@ impl Grid {
       let is_left_solid = self.is_solid(i - 1);
 
       let mut new_left_vel = 0.0;
+      let x = i % self.width;
+
       if !is_left_solid {
-        let face_u_x = (d.x as f32) * self.cell_size.0;
-        let face_u_y = ((d.y as f32) + 0.5) * self.cell_size.1;
+        let face_u_x = (x as f32) * self.cell_size;
+        let face_u_y = ((y as f32) + 0.5) * self.cell_size;
 
         let vel_at_face_u = self.sample_bilinear(face_u_x, face_u_y, &self.velocities);
         
@@ -256,8 +224,8 @@ impl Grid {
 
         // sampleU expects grid coordinates, so we divide by cell_size
         new_left_vel = bilinear::sample_u(
-          prev_x / self.cell_size.0, 
-          prev_y / self.cell_size.1,
+          prev_x / self.cell_size, 
+          prev_y / self.cell_size,
           &self.velocities,
           self.width, 
           self.height
@@ -266,8 +234,8 @@ impl Grid {
 
       let mut new_top_vel = 0.0;
       if !is_top_solid {
-        let face_v_x = ((d.x as f32) + 0.5) * self.cell_size.0;
-        let face_v_y = (d.y as f32) * self.cell_size.1;
+        let face_v_x = ((x as f32) + 0.5) * self.cell_size;
+        let face_v_y = (y as f32) * self.cell_size;
 
         let vel_at_face_v = self.sample_bilinear(face_v_x, face_v_y, &self.velocities);
 
@@ -275,8 +243,8 @@ impl Grid {
         let prev_y = face_v_y - vel_at_face_v.top * self.time_step;
 
         new_top_vel = bilinear::sample_v(
-          prev_x / self.cell_size.0,
-          prev_y / self.cell_size.1,
+          prev_x / self.cell_size,
+          prev_y / self.cell_size,
           &self.velocities,
           self.width,
           self.height
@@ -299,21 +267,21 @@ impl Grid {
         continue;
       }
 
-      let center_x = ((x as f32) + 0.5) * self.cell_size.0;
-      let center_y = ((y as f32) + 0.5) * self.cell_size.1;
+      let center_x = ((x as f32) + 0.5) * self.cell_size;
+      let center_y = ((y as f32) + 0.5) * self.cell_size;
       let vel_at_center = self.sample_bilinear(center_x, center_y, &self.velocities);
       
       let prev_x = center_x - vel_at_center.left * self.time_step;
       let prev_y = center_y - vel_at_center.top * self.time_step;
       // expects grid coordinates, so we divide by cell_size
-      let smoke_vel = bilinear::sample_smoke(
+      let advected_smoke = bilinear::sample_smoke(
         &self.smoke,
-        prev_x / self.cell_size.0,
-        prev_y / self.cell_size.1,
+        prev_x / self.cell_size,
+        prev_y / self.cell_size,
         self.width,
         self.height
       );
-      self.temp_smoke[i] = smoke_vel;
+      self.temp_smoke[i] = advected_smoke;
     }
 
     self.smoke.copy_from_slice(&self.temp_smoke);
