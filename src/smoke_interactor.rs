@@ -122,7 +122,7 @@ impl GridInteractor {
       .min((grid.height - 1) as f32)
       .floor() as usize;
 
-    if self.mouse_pressed_btn == MouseButton::Left {
+    if self.mouse_pressed_btn == MouseButton::Right {
       for cy in min_y..max_y {
         for cx in min_x..max_x {
           let p_index = cy * grid.width + cx;

@@ -160,6 +160,7 @@ fn main() {
     )),
     Box::new(Smoke::start(
       700.0, 
+      100,
       1.0, 
       0.02, 
       Rc::clone(&ctx.input_handler)
@@ -173,7 +174,7 @@ fn main() {
   let mut fps_timer = start_time;
   let mut frames_this_second = 0;
   worlds[world_index].on_enable();
-  
+
   'main_loop: loop {
     let current_time = Instant::now();
     ctx.delta_time = current_time.duration_since(last_frame_time).as_secs_f32();

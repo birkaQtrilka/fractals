@@ -7,7 +7,7 @@ pub struct Grid {
   pub width: usize,
   pub height: usize,
   pub smoke: Vec<f32>,
-  solid_map: Vec<bool>,
+  pub solid_map: Vec<bool>,
   velocities: Vec<Pair>, //to do: flatten it later
   temp_velocities: Vec<Pair>,
   temp_smoke: Vec<f32>,
@@ -72,15 +72,14 @@ impl Grid {
   
   fn init_solid_map(&mut self) {
     for i in 0..self.width {
-      self.solid_map[i] = true;
-      self.solid_map[i + self.width*(self.height - 1)] = true;      
+        self.solid_map[i] = true;
+        self.solid_map[i + self.width * (self.height - 1)] = true;
     }
     
-    for i in (0..(self.width * self.height)).step_by(self.width) { 
-      self.solid_map[i] = true;
-      self.solid_map[i + self.width - 1] = true;      
+    for i in (0..(self.width * self.height)).step_by(self.width) {
+        self.solid_map[i] = true;
+        self.solid_map[i + self.width - 1] = true;
     }
-    
   }
   
   fn sample_bilinear(&self, world_x: f32, world_y: f32, map: &[Pair])-> Pair {

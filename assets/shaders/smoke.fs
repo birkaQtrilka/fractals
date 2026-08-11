@@ -20,7 +20,7 @@ void main() {
   if(y * size < cellSize || y * size > size-cellSize || x * size < cellSize || x * size > size-cellSize) {
     density = 1.0;
     if(x * size < size)
-      FragColor = vec4(1, .5, 0, 1.0);
+      FragColor = vec4(.0, .0, 0, 1.0);
     else 
       FragColor = vec4(0.0,0.0,0.0,1.0);
     return;
