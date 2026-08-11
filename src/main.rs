@@ -20,6 +20,8 @@ use crate::mover::MoveData;
 use crate::program::{Mandelbrot, Updater};
 use crate::smoke_runner::Smoke;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::time::Instant; // <-- Added for time tracking
 
 use beryllium::events::SDLK_1;
@@ -41,7 +43,7 @@ const VERTICES: [Vertex; 3] =
   [[-1.0, -1.0, 0.0], [-1.0, 3.0, 0.0], [3.0, -1.0, 0.0]];
 
 pub struct Context {
-  pub input_handler: InputHandler,
+  pub input_handler: Rc<RefCell<InputHandler>>,
   pub window_w: i32,
   pub window_h: i32,
   // Added time tracking fields
@@ -130,10 +132,10 @@ fn main() {
 
   let resolotion = win.get_window_size();  
   let mut ctx = Context {
-    input_handler: InputHandler::new(),
+    input_handler: Rc::new(RefCell::new(InputHandler::new())),// make this rc?
     window_w: resolotion.0,
     window_h: resolotion.1,
-    time: 0.0,        // <-- Init new fields
+    time: 0.0,
     delta_time: 0.0,
     fps: 0.0,
   };
@@ -160,19 +162,18 @@ fn main() {
       700.0, 
       1.0, 
       0.02, 
-      &mut ctx.input_handler
+      Rc::clone(&ctx.input_handler)
     )),
   ];
   let mut world_index = 2;
 
-  // Set up clock tracking variables
   let start_time = Instant::now();
   let mut last_frame_time = start_time;
   
-  // Set up FPS tracking variables
   let mut fps_timer = start_time;
   let mut frames_this_second = 0;
-
+  worlds[world_index].on_enable();
+  
   'main_loop: loop {
     let current_time = Instant::now();
     ctx.delta_time = current_time.duration_since(last_frame_time).as_secs_f32();
@@ -188,18 +189,25 @@ fn main() {
         frames_this_second = 0;
         fps_timer = current_time;
     }
-
-    ctx.input_handler.main_loop();
-    while let Some((event, _remaining)) = sdl.poll_events() {
-      if ctx.input_handler.process_events(event) {
-        break 'main_loop;
+    {
+      let mut input = ctx.input_handler.borrow_mut();
+      input.main_loop();
+      while let Some((event, _remaining)) = sdl.poll_events() {
+        if input.process_events(event) {
+          break 'main_loop;
+        }
       }
     }
 
     worlds[world_index].update(&ctx);
-    if ctx.input_handler.is_key_down(SDLK_1) {
+    if ctx.input_handler.borrow().is_key_down(SDLK_1) {
+      worlds[world_index].on_disable();
+      
       if world_index == worlds.len()-1 {world_index = 0;}
       else {world_index += 1;}
+
+      worlds[world_index].on_enable();
+
     }    
 
     unsafe {

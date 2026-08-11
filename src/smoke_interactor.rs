@@ -65,19 +65,25 @@ impl GridInteractor {
   }
 
   pub fn detach(self_rc: &Rc<RefCell<Self>>, input: &mut InputHandler) {
-    let sub_up =   std::mem::take(&mut self_rc.borrow_mut().mouse_up_sub);
-    let sub_down = std::mem::take(&mut self_rc.borrow_mut().mouse_down_sub);
-    let sub_move = std::mem::take(&mut self_rc.borrow_mut().mouse_move_sub);
+    let (sub_up, sub_down, sub_move) = {
+        let mut borrow = self_rc.borrow_mut();
+        (
+            std::mem::take(&mut borrow.mouse_up_sub),
+            std::mem::take(&mut borrow.mouse_down_sub),
+            std::mem::take(&mut borrow.mouse_move_sub),
+        )
+    };
+    
     if let Some(s) = sub_up {
-      input.unsubscribe_mouse(s);
+        input.unsubscribe_mouse(s);
     }
     if let Some(s) = sub_down {
-      input.unsubscribe_mouse(s);
+        input.unsubscribe_mouse(s);
     }
     if let Some(s) = sub_move {
-      input.unsubscribe_mouse(s);
-    } 
-  }
+        input.unsubscribe_mouse(s);
+    }
+}
 
   fn on_mouse_down(&mut self, e: &MouseEventData) {
     self.is_dragging = true;

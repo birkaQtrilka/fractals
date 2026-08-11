@@ -5,12 +5,12 @@ use queues::IsQueue;
 use crate::{Context, input_handling::InputHandler, program::Updater, smoke_drawer::SmokeDrawer, smoke_grid::Grid, smoke_interactor::GridInteractor};
 
 pub struct Smoke {
-  pub width: f32,
   pub time_step: f32,
   pub accumulator: f32,
   grid: Rc<RefCell<Grid>>,
   drawer: SmokeDrawer,
   interactor: Rc<RefCell<GridInteractor>>,
+  input: Rc<RefCell<InputHandler>>
 }
 
 impl Smoke {
@@ -18,7 +18,7 @@ impl Smoke {
     width: f32,
     density: f32,
     time_step: f32,
-    input: &mut InputHandler,
+    input: Rc<RefCell<InputHandler>>,
   ) -> Smoke {
     let w = 40_usize;
     let grid = Rc::new(RefCell::new(Grid::new(
@@ -33,15 +33,14 @@ impl Smoke {
     let interactor = Rc::new(RefCell::new(
       GridInteractor::new(Rc::clone(&grid), 30.0, 100.0)
     ));
-    GridInteractor::attach(&interactor, input);
     
     Smoke {
-      width,
       time_step,
       accumulator: 0.0,
       drawer,
       grid,
-      interactor
+      interactor,
+      input
     }
   }
 
@@ -61,6 +60,14 @@ impl Smoke {
 }
 
 impl Updater for Smoke {
+  fn on_enable(&mut self) {
+    GridInteractor::attach(&self.interactor, &mut self.input.borrow_mut());
+  }
+
+  fn on_disable(&mut self) {
+    GridInteractor::detach(&self.interactor, &mut self.input.borrow_mut());
+  }
+
   fn update(&mut self, ctx: &Context) {
     self.accumulator += ctx.delta_time;
 

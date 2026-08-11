@@ -1,7 +1,7 @@
-use std::{ffi::CString, fs::{File, OpenOptions}, io::{BufRead, BufReader, Seek, SeekFrom, Write}};
+use std::{fs::{File, OpenOptions}, io::{BufRead, BufReader, Seek, SeekFrom, Write}};
 
 use beryllium::events::{SDLK_a, SDLK_j, SDLK_k, SDLK_o, SDLK_p, SDLK_q, SDLK_s, SDLK_w};
-use ogl33::{glGetUniformLocation, glUniform4f};
+use ogl33::{glUniform4f};
 
 use crate::{Context, input_handling::PressState, mover::MoveData, program::{Mandelbrot, Updater}};
 
@@ -29,7 +29,6 @@ impl JuliaSet {
     save_file_path: &str,
     max_iterations: u32,
   ) -> JuliaSet {
-    let julia_const_name = CString::new(julia_const_name).unwrap();
     let mandelbrot = Mandelbrot::new(mover, zoom_name, pos_name, frag_path, max_iterations);
     
     let save_file = OpenOptions::new()
@@ -40,7 +39,7 @@ impl JuliaSet {
       .expect("file couldn't be created or opened");
 
     let mut set = JuliaSet {
-      julia_const_location:  unsafe { glGetUniformLocation(mandelbrot.program.0, julia_const_name.as_ptr()) },
+      julia_const_location: mandelbrot.program.get_unif_location(julia_const_name),
       julia_const: (-0.70176, -0.3842),
       julia_const_speed,
       saved_julia_consts: Vec::new(),
@@ -85,7 +84,8 @@ impl JuliaSet {
   }
 
   pub fn check_for_save(&mut self, ctx: &Context) {
-    if ctx.input_handler.get_key(SDLK_o).state == PressState::Down {
+    let input = ctx.input_handler.borrow();
+    if input.get_key(SDLK_o).state == PressState::Down {
       self.saved_julia_consts = JuliaSet::read_save(&self.save_file);
       if self.saved_julia_consts.len() == 0 {
         return;
@@ -96,14 +96,14 @@ impl JuliaSet {
       return;
     }
     
-    if ctx.input_handler.get_key(SDLK_j).state == PressState::Down && self.saved_julia_const_index > 0{
+    if input.get_key(SDLK_j).state == PressState::Down && self.saved_julia_const_index > 0{
       self.saved_julia_const_index -= 1;
       self.clamp_index();
       self.update_julia_const();
       print!("index {}... coords: ({},{})\n", self.saved_julia_const_index, self.julia_const.0, self.julia_const.1);
 
     }
-    if ctx.input_handler.get_key(SDLK_k).state == PressState::Down {
+    if input.get_key(SDLK_k).state == PressState::Down {
       self.saved_julia_const_index += 1;
       self.clamp_index();
       self.update_julia_const();
@@ -122,7 +122,7 @@ impl JuliaSet {
 }
 impl Updater for JuliaSet {
   fn update(&mut self, ctx: &Context) {
-    let input = &ctx.input_handler;
+    let input = ctx.input_handler.borrow();
 
     if input.is_key_active(SDLK_a) {
       self.julia_const.0 -= self.julia_const_speed;
@@ -138,7 +138,6 @@ impl Updater for JuliaSet {
     }
     self.base.update(ctx);
 
-
     let split_x = Mandelbrot::to_emulated_double(self.julia_const.0);
     let split_y = Mandelbrot::to_emulated_double(self.julia_const.1);
 
@@ -148,7 +147,7 @@ impl Updater for JuliaSet {
 
     self.check_for_save(&ctx);
     
-    if ctx.input_handler.get_key(SDLK_p).state == PressState::Down {
+    if input.get_key(SDLK_p).state == PressState::Down {
       self.save( &self.save_file);
     }
   }

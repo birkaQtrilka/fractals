@@ -21,7 +21,7 @@ impl MoveData {
 
   pub fn  update(&mut self, ctx: &Context) {
     let relative_speed = self.move_speed * self.zoom;
-    let input = &ctx.input_handler;
+    let input = ctx.input_handler.borrow();
 
     if input.is_key_active(SDLK_x) {
       self.zoom *= self.zoom_speed;

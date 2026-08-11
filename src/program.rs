@@ -1,10 +1,12 @@
-use std::{ffi::CString, fs};
+use std::{fs};
 
 use ogl33::*;
 use crate::{Context, learn_opengl::ShaderProgram, map_range, mover::MoveData};
 
 pub trait Updater {
   fn update(&mut self, ctx: &Context);
+  fn on_enable(&mut self ) {}
+  fn on_disable(&mut self) {}
 }
 
 pub struct Mandelbrot {
@@ -32,15 +34,11 @@ impl Mandelbrot {
     let program = ShaderProgram::from_vert_frag(&vert_shader, &frag_shader).expect("couldn't create program");
     program.use_program();
 
-    let zoom_name = CString::new(zoom_name).unwrap();
-    let pos_name = CString::new(pos_name).unwrap();
-    let max_iterations_name = CString::new("max_iterations").unwrap();
-    
     Mandelbrot {
       mover,
-      zoom_location: unsafe { glGetUniformLocation(program.0, zoom_name.as_ptr()) },
-      pos_location:  unsafe { glGetUniformLocation(program.0, pos_name.as_ptr()) },
-      max_iterations_location: unsafe { glGetUniformLocation(program.0, max_iterations_name.as_ptr()) },
+      zoom_location:           program.get_unif_location(zoom_name),
+      pos_location:            program.get_unif_location(pos_name),
+      max_iterations_location: program.get_unif_location("max_iterations"),
       max_iterations,
       program,
     }
@@ -51,8 +49,6 @@ impl Mandelbrot {
     let center_x_lo: f32 = (num - center_x_hi as f64) as f32;
     (center_x_hi, center_x_lo)
   }
-
-  
 }
 
 impl Updater for Mandelbrot {

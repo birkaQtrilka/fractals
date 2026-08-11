@@ -1,5 +1,3 @@
-use rand::Rng;
-
 use crate::bilinear;
 use crate::smoke_data::{Pair, Cell, CellData};
 const INVALID: f32 = -100_000_000.0;
@@ -85,10 +83,6 @@ impl Grid {
     
   }
   
-  fn to_index(&self, x: usize, y: usize)-> usize {
-    return y * self.width + x;
-  }
-
   fn sample_bilinear(&self, world_x: f32, world_y: f32, map: &[Pair])-> Pair {
     // Convert world space directly to grid space
     let px = world_x / self.cell_size.0;
@@ -103,7 +97,7 @@ impl Grid {
     Pair::new(vy, vx)
   }
 
-  fn get_divergence(&self, c: Cell) -> f32 {
+  fn _get_divergence(&self, c: Cell) -> f32 {
     let gradient_x = (c.r - c.l) / self.cell_size.0 ;
     let gradient_y = (c.t - c.b) / self.cell_size.1 ;
 
