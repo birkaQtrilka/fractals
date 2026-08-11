@@ -6,8 +6,8 @@ use crate::{Context, input_handling::InputHandler, program::Updater, smoke_drawe
 
 pub struct Smoke {
   pub width: f32,
-  // last_time: f32,
-  // accumulator: f32,
+  pub time_step: f32,
+  pub accumulator: f32,
   grid: Rc<RefCell<Grid>>,
   drawer: SmokeDrawer,
   interactor: Rc<RefCell<GridInteractor>>,
@@ -34,8 +34,11 @@ impl Smoke {
       GridInteractor::new(Rc::clone(&grid), 30.0, 100.0)
     ));
     GridInteractor::attach(&interactor, input);
+    
     Smoke {
       width,
+      time_step,
+      accumulator: 0.0,
       drawer,
       grid,
       interactor
@@ -59,18 +62,25 @@ impl Smoke {
 
 impl Updater for Smoke {
   fn update(&mut self, ctx: &Context) {
-    let mut grid_mut = self.grid.borrow_mut();
-    let mut interactor_mut = self.interactor.borrow_mut();
+    self.accumulator += ctx.delta_time;
 
-    self.apply_velocities(&mut grid_mut, &mut interactor_mut);
-    self.apply_smoke(&mut grid_mut, &mut interactor_mut);
-    
-    grid_mut.iterate_pressure_updates();
-    grid_mut.update_velocities();
-    grid_mut.advect_velocities();
-    grid_mut.advect_smoke();
-    
-    drop(grid_mut);
+    while self.accumulator >= self.time_step {
+      // Scoping the borrows so they drop at the end of each physical step loop
+      {
+        let mut grid_mut = self.grid.borrow_mut();
+        let mut interactor_mut = self.interactor.borrow_mut();
+
+        self.apply_velocities(&mut grid_mut, &mut interactor_mut);
+        self.apply_smoke(&mut grid_mut, &mut interactor_mut);
+        
+        grid_mut.iterate_pressure_updates();
+        grid_mut.update_velocities();
+        grid_mut.advect_velocities();
+        grid_mut.advect_smoke();
+      }
+      
+      self.accumulator -= self.time_step;
+    }
     
     self.drawer.update(ctx);
   }

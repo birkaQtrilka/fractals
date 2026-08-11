@@ -20,6 +20,7 @@ use crate::mover::MoveData;
 use crate::program::{Mandelbrot, Updater};
 use crate::smoke_runner::Smoke;
 
+use std::time::Instant; // <-- Added for time tracking
 
 use beryllium::events::SDLK_1;
 use beryllium::{
@@ -39,10 +40,14 @@ type Vertex = [f32; 3];
 const VERTICES: [Vertex; 3] =
   [[-1.0, -1.0, 0.0], [-1.0, 3.0, 0.0], [3.0, -1.0, 0.0]];
 
-struct Context {
-  input_handler: InputHandler,
-  window_w: i32,
-  window_h: i32,
+pub struct Context {
+  pub input_handler: InputHandler,
+  pub window_w: i32,
+  pub window_h: i32,
+  // Added time tracking fields
+  pub time: f32,
+  pub delta_time: f32,
+  pub fps: f32,
 }
 
 fn map_range(val: f64, in_min: f64, in_max: f64, out_min: u32, out_max: u32) -> u32 {
@@ -109,14 +114,6 @@ fn main() {
     GL_STATIC_DRAW
   );
 
-  // let mut ebo = Buffer::new().expect("Couldn't make ebo");
-  // ebo.bind(BufferType::ElementArray);
-  // learn::buffer_data(
-  //   BufferType::ElementArray, 
-  //   bytemuck::cast_slice(&INDICES),
-  //   GL_STATIC_DRAW
-  // );
-
   unsafe {
     glVertexAttribPointer(
       0,
@@ -129,7 +126,6 @@ fn main() {
     glEnableVertexAttribArray(0);
   }
 
-
   learn::polygon_mode(learn::PolygonMode::Fill);
 
   let resolotion = win.get_window_size();  
@@ -137,8 +133,11 @@ fn main() {
     input_handler: InputHandler::new(),
     window_w: resolotion.0,
     window_h: resolotion.1,
+    time: 0.0,        // <-- Init new fields
+    delta_time: 0.0,
+    fps: 0.0,
   };
-  // let smoke = 
+  
   let mut worlds: Vec<Box<dyn Updater>> = vec![
     Box::new(Mandelbrot::new(
       MoveData::new(0.95,0.02), 
@@ -160,14 +159,36 @@ fn main() {
     Box::new(Smoke::start(
       700.0, 
       1.0, 
-      0.001, 
+      0.02, 
       &mut ctx.input_handler
     )),
   ];
   let mut world_index = 2;
 
+  // Set up clock tracking variables
+  let start_time = Instant::now();
+  let mut last_frame_time = start_time;
+  
+  // Set up FPS tracking variables
+  let mut fps_timer = start_time;
+  let mut frames_this_second = 0;
+
   'main_loop: loop {
+    let current_time = Instant::now();
+    ctx.delta_time = current_time.duration_since(last_frame_time).as_secs_f32();
+    ctx.time = current_time.duration_since(start_time).as_secs_f32();
+    last_frame_time = current_time;
+
+    frames_this_second += 1;
+    let fps_elapsed = current_time.duration_since(fps_timer).as_secs_f32();
     
+    // Update FPS value every 0.5 seconds to make it readable (less jittery)
+    if fps_elapsed >= 0.5 {
+        ctx.fps = frames_this_second as f32 / fps_elapsed;
+        frames_this_second = 0;
+        fps_timer = current_time;
+    }
+
     ctx.input_handler.main_loop();
     while let Some((event, _remaining)) = sdl.poll_events() {
       if ctx.input_handler.process_events(event) {
@@ -183,7 +204,6 @@ fn main() {
 
     unsafe {
       glClear(GL_COLOR_BUFFER_BIT);
-      // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0 as *const _);
       glDrawArrays(GL_TRIANGLES, 0, 3);
       win.swap_window();
     }
