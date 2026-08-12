@@ -2,6 +2,7 @@
 
 uniform float cellSize;
 uniform float size;
+uniform vec2 gridSize;
 uniform ivec2 resolution;
 uniform sampler2D gridTexture; 
 
@@ -9,24 +10,26 @@ in vec2 uv;
 out vec4 FragColor;
 
 void main() {
-  // uv it's 0 to 1
-  // need to figure out ratio
+  // Compute screen aspect ratio
   float ratio = resolution.x / float(resolution.y);
-  // assuming height is shorter
-  // need to know 
-  float x = uv.x * ratio;
-  float y = 1-uv.y;
-  float density = 0;
-  if(y * size < cellSize || y * size > size-cellSize || x * size < cellSize || x * size > size-cellSize) {
-    density = 1.0;
-    if(x * size < size)
-      FragColor = vec4(.0, .0, 0, 1.0);
-    else 
-      FragColor = vec4(0.0,0.0,0.0,1.0);
+  
+  // Map standard UV coordinates into our physical grid scale
+  float phys_x = uv.x * ratio * size;
+  float phys_y = (1.0 - uv.y) * size;
+  
+  // Out of bounds / border check logic
+  // (Detects if we are trying to render outside or on the solid edges of the simulated rect grid)
+  if(phys_y < cellSize || phys_y > gridSize.y - cellSize || phys_x < cellSize || phys_x > gridSize.x - cellSize) {
+    FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     return;
   }
-  density = texture(gridTexture, vec2(x, y)).r;
+  
+  // Transform physical coordinates onto [0..1] range for texture lookup
+  // This guarantees our texture remains drawn with 1:1 aspect ratio square cells
+  float tx = phys_x / gridSize.x;
+  float ty = phys_y / gridSize.y;
+  
+  float density = texture(gridTexture, vec2(tx, ty)).r;
   
   FragColor = vec4(density, density, density, 1.0);
-  // FragColor = vec4(uv.x, 1-uv.y,0.0,1.0);
 }

@@ -4,13 +4,13 @@ use ogl33::*;
 
 use crate::{Context, learn_opengl::ShaderProgram, program::Updater, smoke_grid::Grid};
 
-
 pub struct SmokeDrawer {
   grid: Rc<RefCell<Grid>>,
   pixel_size: f32,
 
   u_cell_size: i32,
   u_size: i32,
+  u_grid_size: i32,
   u_resolution: i32,
   program: ShaderProgram,
   texture_id: u32,
@@ -27,6 +27,7 @@ impl SmokeDrawer {
 
     let u_cell_size = program.get_unif_location("cellSize");
     let u_size = program.get_unif_location("size");
+    let u_grid_size = program.get_unif_location("gridSize");
     let u_grid_texture = program.get_unif_location("gridTexture");
     let u_resolution = program.get_unif_location("resolution");
     unsafe { glUniform1i(u_grid_texture, 0); }
@@ -43,11 +44,12 @@ impl SmokeDrawer {
 
     SmokeDrawer {
       grid,
+      pixel_size,
       u_cell_size,
       u_size,
+      u_grid_size,
       program,
       texture_id,
-      pixel_size,
       u_resolution
     }
   }
@@ -59,9 +61,14 @@ impl Updater for SmokeDrawer {
     self.program.use_program();
 
     unsafe {
-      glUniform1f(self.u_size, self.pixel_size );
-      glUniform1f(self.u_cell_size, self.pixel_size / grid_ref.width as f32);
-      glUniform2i(self.u_resolution,ctx.window_w, ctx.window_h);
+      let cell_size = grid_ref.cell_size;
+      let grid_w = grid_ref.width as f32 * cell_size;
+      let grid_h = grid_ref.height as f32 * cell_size;
+
+      glUniform1f(self.u_size, self.pixel_size);
+      glUniform1f(self.u_cell_size, cell_size);
+      glUniform2f(self.u_grid_size, grid_w, grid_h);
+      glUniform2i(self.u_resolution, ctx.window_w, ctx.window_h);
 
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, self.texture_id);

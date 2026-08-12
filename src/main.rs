@@ -88,7 +88,7 @@ fn main() {
 
   let win_args = video::CreateWinArgs {
     title: WINDOW_TITLE,
-    width: 750,
+    width: 900,
     height: 750,
     allow_high_dpi: true,
     borderless: false,
@@ -159,8 +159,10 @@ fn main() {
       250
     )),
     Box::new(Smoke::start(
-      700.0, 
-      140,
+      ctx.window_w as f32, 
+      ctx.window_h as f32, 
+      120,
+      100,
       1.0, 
       0.04, 
       Rc::clone(&ctx.input_handler)

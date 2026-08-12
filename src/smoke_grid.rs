@@ -197,7 +197,6 @@ pub fn update_velocities(&mut self) {
 
   pub fn advect_velocities(&mut self) {
     for i in 0..self.pressures.len() {
-      let d = &self.cycle_data[i];
       let y = i / self.width;
 
       let vi = i + y;

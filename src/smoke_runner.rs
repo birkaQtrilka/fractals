@@ -16,22 +16,26 @@ pub struct Smoke {
 impl Smoke {
   pub fn start(
     width: f32,
-    cell_count: usize,
+    height: f32,
+    cell_count_x: usize,
+    cell_count_y: usize,
     density: f32,
     time_step: f32,
     input: Rc<RefCell<InputHandler>>,
   ) -> Smoke {
+    let cell_size = (width / cell_count_x as f32).min(height / cell_count_y as f32);
+
     let grid = Rc::new(RefCell::new(Grid::new(
-      cell_count, 
-      cell_count,
+      cell_count_x,
+      cell_count_y,
       density, 
       time_step, 
-      width / cell_count as f32
+      cell_size
     )));
     {
       Self::init_solid_map(&mut grid.borrow_mut());
     }
-    let drawer = SmokeDrawer::new(Rc::clone(&grid), width);
+    let drawer = SmokeDrawer::new(Rc::clone(&grid), height);
     let interactor = Rc::new(RefCell::new(
       GridInteractor::new(Rc::clone(&grid), 30.0, 10.0)
     ));
@@ -53,9 +57,10 @@ impl Smoke {
     }
 
     let w = grid.width;
+    let h = grid.height;
     let bar_height = 10;
     let bar_center_offset = 0;
-    let bar_start = w*w/2 -(w*bar_height/2) - (w*bar_center_offset) + 5;
+    let bar_start = (w * h) / 2 - (w * bar_height / 2) - (w * bar_center_offset) + 5;
     for i in 0..bar_height {
       grid.set_velocities( bar_start + w * i,None, Some(600.0), None, None);
       grid.smoke[bar_start + w * i + 1] = 1.0;
@@ -66,12 +71,14 @@ impl Smoke {
   fn init_solid_map(grid: &mut RefMut<'_, Grid>) {
     let radius = 10;
     let w = grid.width;
-    let center_x = grid.width / 2;
+    let h = grid.height;
+    let center_x = w / 2;
+    let center_y = h / 2;
     
-    for y in 0..w {
+    for y in 0..h {
       for x in 0..w {
         let dx = x as i32 - center_x as i32;
-        let dy = y as i32 - center_x as i32;
+        let dy = y as i32 - center_y as i32;
         let distance_squared = dx * dx + dy * dy;
         
         if distance_squared <= (radius * radius) {

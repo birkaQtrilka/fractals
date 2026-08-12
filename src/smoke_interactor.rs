@@ -83,11 +83,10 @@ impl GridInteractor {
     if let Some(s) = sub_move {
         input.unsubscribe_mouse(s);
     }
-}
+  }
 
   fn on_mouse_down(&mut self, e: &MouseEventData) {
     self.is_dragging = true;
-    // println!("{:?}", e.button.unwrap());
     self.mouse_pressed_btn = e.button.unwrap();
   }
 
@@ -108,18 +107,14 @@ impl GridInteractor {
     }
 
     let grid = self.grid.borrow();
-
     let cs = grid.cell_size;
 
     // Calculate a bounding box of cells to avoid checking the entire grid
-    let min_x = ((pos.0 - self.brush_radius).floor() / cs).max(0.0).floor() as usize;
-    let max_x = (((pos.0 + self.brush_radius).floor() / cs))
-      .min((grid.width - 1) as f32)
-      .floor() as usize;
-    let min_y = (((pos.1 - self.brush_radius).floor() / cs)).max(0.0).floor() as usize;
-    let max_y = (((pos.1 + self.brush_radius).floor() / cs))
-      .min((grid.height - 1) as f32)
-      .floor() as usize;
+    let min_x = ((pos.0 - self.brush_radius) / cs).max(0.0).floor() as usize;
+    let max_x = (((pos.0 + self.brush_radius) / cs).ceil() as usize).min(grid.width);
+    
+    let min_y = ((pos.1 - self.brush_radius) / cs).max(0.0).floor() as usize;
+    let max_y = (((pos.1 + self.brush_radius) / cs).ceil() as usize).min(grid.height);
 
     if self.mouse_pressed_btn == MouseButton::Right {
       for cy in min_y..max_y {
@@ -142,7 +137,7 @@ impl GridInteractor {
         let cell_x_px = cx as f32 * cs;
         let cell_y_px = cy as f32 * cs;
 
-        // Define center points for the 4 edges of the current cell
+        // Define center points for the 4 edges of the current square cell
         let edges = (
           (cell_x_px + cs / 2.0, cell_y_px), // t
           (cell_x_px, cell_y_px + cs / 2.0), // l
