@@ -1,10 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod learn_opengl;
-mod program;
+mod updater;
 mod input_handling;
-mod mover;
-mod julia_set;
-mod flow_field;
 mod smoke_grid;
 mod bilinear;
 mod smoke_data;
@@ -15,11 +12,8 @@ mod compute_ext;
 mod grid_gpu;
 
 use crate::compute_ext::ComputeExt;
-// use crate::flow_field::Field;
 use crate::input_handling::*;
-use crate::julia_set::JuliaSet;
-use crate::mover::MoveData;
-use crate::program::{Mandelbrot, Updater};
+use crate::updater::{Updater};
 use crate::smoke_runner::Smoke;
 
 use std::cell::RefCell;
@@ -48,31 +42,9 @@ pub struct Context {
   pub input_handler: Rc<RefCell<InputHandler>>,
   pub window_w: i32,
   pub window_h: i32,
-  // Added time tracking fields
   pub time: f32,
   pub delta_time: f32,
   pub fps: f32,
-}
-
-fn map_range(val: f64, in_min: f64, in_max: f64, out_min: u32, out_max: u32) -> u32 {
-    let safe_val = val.max(0.000000000001);
-    let safe_in_min = in_min.max(0.000000000001);
-    let safe_in_max = in_max.max(0.000000000001);
-
-    let log_val = safe_val.log10();
-    let log_in_min = safe_in_min.log10();
-    let log_in_max = safe_in_max.log10();
-    
-    let out_min_f = out_min as f64;
-    let out_max_f = out_max as f64;
-    
-    let mapped = (log_val - log_in_min) / (log_in_max - log_in_min) * (out_max_f - out_min_f) + out_min_f;
-    
-    // let clamp_min = out_min_f.min(out_max_f);
-    // let clamp_max = out_min_f.max(out_max_f);
-    
-    // mapped.clamp(clamp_min, clamp_max).round() as u32
-    mapped.round() as u32
 }
 
 fn main() {
@@ -100,15 +72,7 @@ fn main() {
   let compute_extern = unsafe {
     Rc::new(ComputeExt::load(|name| win.get_proc_address(name.as_ptr().cast())))
   };
-  
-  // unsafe {
-  //   glEnable(GL_DEBUG_OUTPUT);
-  //   glDebugMessageCallback(Some(debug_callback), std::ptr::null());
-  // }
-
-  // assert!(!compute_extern.dispatch_compute.is_null());
-  // assert!(!compute_extern.memory_barrier.is_null());
-  
+    
   let version = unsafe { std::ffi::CStr::from_ptr(glGetString(GL_VERSION) as *const i8) };
   println!("OpenGL version: {:?}", version);
   
@@ -150,23 +114,6 @@ fn main() {
   };
   
   let mut worlds: Vec<Box<dyn Updater>> = vec![
-    Box::new(Mandelbrot::new(
-      MoveData::new(0.95,0.02), 
-      "zoom", 
-      "offset", 
-      "assets/shaders/mandelbrot/mandelbrot.fs",
-      250
-    )),
-    Box::new(JuliaSet::new(
-      MoveData::new(0.95,0.02), 
-      "zoom", 
-      "offset", 
-      "assets/shaders/mandelbrot/julia-set.fs",
-      "julia_const",
-      0.001,
-      "save-file.txt",
-      250
-    )),
     Box::new(Smoke::start(
       ctx.window_w as f32, 
       ctx.window_h as f32, 
@@ -213,18 +160,22 @@ fn main() {
     }
 
     worlds[world_index].update(&ctx);
-    {
+    let (switch_world, print_fps) = {
       let inp = ctx.input_handler.borrow();
-      if inp.is_key_down(SDLK_1) {
-        worlds[world_index].on_disable();
-        
-        if world_index == worlds.len()-1 {world_index = 0;}
-        else {world_index += 1;}
-        
-        worlds[world_index].on_enable();
-      } else if inp.is_key_down(SDLK_m) {
-        println!("{}", frames_this_second as f32 / fps_elapsed)
-      }   
+      (
+        inp.is_key_down(SDLK_1) && worlds.len() > 1,
+        inp.is_key_down(SDLK_m)
+      )
+    };
+
+    if switch_world {
+      worlds[world_index].on_disable();
+      
+      if world_index == worlds.len()-1 {world_index = 0;}
+      else {world_index += 1;}
+      worlds[world_index].on_enable();
+    } else if print_fps {
+      println!("{}", frames_this_second as f32 / fps_elapsed)
     }
 
     unsafe {

@@ -2,7 +2,7 @@ use std::{cell::{RefCell, RefMut}, rc::Rc};
 
 use queues::IsQueue;
 
-use crate::{Context, compute_ext::ComputeExt, input_handling::InputHandler, grid_gpu::GridGpu, program::Updater, smoke_drawer::SmokeDrawer, smoke_grid::Grid, smoke_interactor::GridInteractor};
+use crate::{Context, compute_ext::ComputeExt, input_handling::InputHandler, grid_gpu::GridGpu, updater::Updater, smoke_drawer::SmokeDrawer, smoke_interactor::GridInteractor};
 
 pub struct Smoke {
   pub time_step: f32,
