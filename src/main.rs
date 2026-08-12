@@ -124,7 +124,7 @@ impl ApplicationHandler for App {
       let (device, queue) = pollster::block_on(adapter.request_device(
         &wgpu::DeviceDescriptor {
           label: None,
-          required_features: wgpu::Features::empty(),
+          required_features: wgpu::Features::FLOAT32_FILTERABLE, 
           // Use default WebGPU limits which include Compute Shader support!
           required_limits: wgpu::Limits::default(),
           ..Default::default()
@@ -149,6 +149,7 @@ impl ApplicationHandler for App {
         Rc::clone(&self.input_handler),
         Rc::clone(&device),
         Rc::clone(&queue),
+        config.format
       )));
       self.worlds[self.world_index].on_enable();
 

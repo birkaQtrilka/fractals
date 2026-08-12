@@ -28,6 +28,7 @@ impl Smoke {
     input: Rc<RefCell<InputHandler>>,
     device: Rc<Device>,
     queue: Rc<Queue>,
+    surface_format: wgpu::TextureFormat
   ) -> Smoke {
     let cell_size = (width / cell_count_x as f32).min(height / cell_count_y as f32);
 
@@ -48,7 +49,7 @@ impl Smoke {
       Rc::clone(&grid), 
       height, 
       &device, 
-      wgpu::TextureFormat::Bgra8UnormSrgb // Or ideally pass the `format` from your `config` in main.rs!
+      surface_format
     );
 
     let interactor = Rc::new(RefCell::new(

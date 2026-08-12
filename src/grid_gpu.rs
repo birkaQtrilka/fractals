@@ -60,7 +60,7 @@ pub struct GridGpu {
 
   prepare_bg_a: wgpu::BindGroup,
   prepare_bg_b: wgpu::BindGroup,
-  
+
   solve_bg_0: wgpu::BindGroup,
   solve_bg_1: wgpu::BindGroup,
 
@@ -77,6 +77,17 @@ pub struct GridGpu {
   group_y: u32,
 
   is_even_frame: bool,
+
+  // --- Async, non-blocking CPU readback state ---
+  // The GPU keeps ping-ponging every frame regardless of whether the CPU
+  // has consumed the previous readback yet. `velocities` / `smoke` are
+  // therefore a "best effort, ~1 frame stale" mirror of GPU state - fine
+  // for brush/UI reads, never worth blocking the frame for.
+  readback_pending: bool,
+  vel_ready: bool,
+  smoke_ready: bool,
+  vel_rx: Option<std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>>,
+  smoke_rx: Option<std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>>,
 }
 
 impl GridGpu {
@@ -110,7 +121,7 @@ impl GridGpu {
     // 1. Uniform Setup
     let ady = density * cell_size / time_step;
     let k = time_step / (cell_size * density);
-    
+
     let uniforms_0 = GridUniforms {
       width: width as i32,
       height: height as i32,
@@ -157,7 +168,7 @@ impl GridGpu {
     let pressures_buffer = build_storage("pressures", bytemuck::cast_slice(&zeros_bytes));
     let rhs_buffer = build_storage("rhs", bytemuck::cast_slice(&zeros_bytes));
     let inv_total_buffer = build_storage("inv_total", bytemuck::cast_slice(&zeros_bytes));
-    
+
     let velocities_a_buffer = build_storage("velocities_a", velocities_bytes);
     let velocities_b_buffer = build_storage("velocities_b", velocities_bytes);
     let smoke_a_buffer = build_storage("smoke_a", smoke_bytes);
@@ -219,7 +230,6 @@ impl GridGpu {
 
     // Solve (Red-Black iterations ping-pong uniformly only via Parity, not layout variables)
     // Bindings: Uniform, SolidMap, Pressures (in/out), Rhs (in), InvTotal (in)
-// Solve (Red-Black iterations ping-pong uniformly only via Parity, not layout variables)
     let solve_bg_0 = build_bg(&solve_pipeline, "solve_0", &[&uniform_buf_0, &pressures_buffer, &rhs_buffer, &inv_total_buffer]);
     let solve_bg_1 = build_bg(&solve_pipeline, "solve_1", &[&uniform_buf_1, &pressures_buffer, &rhs_buffer, &inv_total_buffer]);
 
@@ -240,23 +250,29 @@ impl GridGpu {
       smoke, velocities, solid_map,
       velocities_dirty: true, smoke_dirty: true,
       device, queue,
-      
+
       solid_map_buffer, pressures_buffer, rhs_buffer, inv_total_buffer,
       velocities_a_buffer, velocities_b_buffer, smoke_a_buffer, smoke_b_buffer,
       velocities_staging, smoke_staging,
       uniform_buf_0, uniform_buf_1,
-      
+
       prepare_pipeline, solve_pipeline, update_vel_pipeline, advect_vel_pipeline, advect_smoke_pipeline,
       prepare_bg_a, prepare_bg_b,
       solve_bg_0, solve_bg_1,
       update_vel_bg_a, update_vel_bg_b,
       advect_vel_bg_a, advect_vel_bg_b,
       advect_smoke_bg_a, advect_smoke_bg_b,
-      
+
       group_x: (width as u32 + 7) / 8,
       group_y: (height as u32 + 7) / 8,
 
       is_even_frame: true,
+
+      readback_pending: false,
+      vel_ready: false,
+      smoke_ready: false,
+      vel_rx: None,
+      smoke_rx: None,
     };
 
     grid.init_solid_map();
@@ -293,7 +309,7 @@ impl GridGpu {
 
     let vel = self.velocities[vi + self.width + 1];
     self.velocities[vi + self.width + 1] = Pair::new(b.unwrap_or(vel.top), vel.left);
-    
+
     self.velocities_dirty = true;
   }
 
@@ -312,14 +328,90 @@ impl GridGpu {
     self.smoke_dirty = true;
   }
 
+  /// Non-blocking: drains a previously-kicked-off readback if the GPU has
+  /// finished mapping the staging buffers. Does nothing (and does NOT
+  /// block) if the mapping isn't ready yet - we'll just try again next
+  /// `step()`. This replaces the old `wait_indefinitely()` + `recv()`
+  /// pair that stalled the CPU (and starved the OS event loop) every frame.
+  fn try_finish_readback(&mut self, ctx: &Context) {
+    if !self.readback_pending {
+      return;
+    }
+
+    // Advance any pending map_async callbacks without blocking.
+    let _ = ctx.device.poll(wgpu::PollType::Poll);
+
+    if !self.vel_ready {
+      if let Some(rx) = &self.vel_rx {
+        if let Ok(res) = rx.try_recv() {
+          res.expect("velocity staging buffer failed to map");
+          self.vel_ready = true;
+        }
+      }
+    }
+    if !self.smoke_ready {
+      if let Some(rx) = &self.smoke_rx {
+        if let Ok(res) = rx.try_recv() {
+          res.expect("smoke staging buffer failed to map");
+          self.smoke_ready = true;
+        }
+      }
+    }
+
+    if !(self.vel_ready && self.smoke_ready) {
+      // Still in flight - try again on a future frame.
+      return;
+    }
+
+    {
+      let vel_data = self.velocities_staging.slice(..).get_mapped_range().expect("velocities_staging not mapped");
+      self.velocities.copy_from_slice(bytemuck::cast_slice(&vel_data));
+    }
+    self.velocities_staging.unmap();
+
+    {
+      let smoke_data = self.smoke_staging.slice(..).get_mapped_range().expect("smoke_staging not mapped");
+      self.smoke.copy_from_slice(bytemuck::cast_slice(&smoke_data));
+    }
+    self.smoke_staging.unmap();
+
+    self.vel_rx = None;
+    self.smoke_rx = None;
+    self.vel_ready = false;
+    self.smoke_ready = false;
+    self.readback_pending = false;
+  }
+
+  /// Kicks off an async, non-blocking map of the staging buffers. Must
+  /// only be called once the previous readback has been fully drained
+  /// (staging buffers unmapped), otherwise wgpu will error trying to map
+  /// a buffer that's already mapped.
+  fn begin_readback(&mut self) {
+    let vel_slice = self.velocities_staging.slice(..);
+    let smoke_slice = self.smoke_staging.slice(..);
+
+    let (tx1, rx1) = std::sync::mpsc::channel();
+    vel_slice.map_async(wgpu::MapMode::Read, move |res| { let _ = tx1.send(res); });
+
+    let (tx2, rx2) = std::sync::mpsc::channel();
+    smoke_slice.map_async(wgpu::MapMode::Read, move |res| { let _ = tx2.send(res); });
+
+    self.vel_rx = Some(rx1);
+    self.smoke_rx = Some(rx2);
+    self.readback_pending = true;
+  }
+
   pub fn step(&mut self, ctx: &Context, pressure_iterations: u32) {
+    // 0. Non-blockingly collect the readback we kicked off last frame (if any).
+    self.try_finish_readback(ctx);
+
     // 1. Send CPU overrides down to GPU
     if self.velocities_dirty {
       let current_vel = if self.is_even_frame { &self.velocities_a_buffer } else { &self.velocities_b_buffer };
       ctx.queue.write_buffer(current_vel, 0, bytemuck::cast_slice(&self.velocities));
       self.velocities_dirty = false;
     }
-    
+
     if self.smoke_dirty {
       let current_smoke = if self.is_even_frame { &self.smoke_a_buffer } else { &self.smoke_b_buffer };
       ctx.queue.write_buffer(current_smoke, 0, bytemuck::cast_slice(&self.smoke));
@@ -372,38 +464,21 @@ impl GridGpu {
     let vel_size = (self.width + 1) * (self.height + 1);
     let size = self.width * self.height;
 
-    // Queue a copy up to the staging buffers 
-    compute_encoder.copy_buffer_to_buffer(result_vel, 0, &self.velocities_staging, 0, (vel_size * 8) as wgpu::BufferAddress);
-    compute_encoder.copy_buffer_to_buffer(result_smoke, 0, &self.smoke_staging, 0, (size * 4) as wgpu::BufferAddress);
+    // Only queue a fresh staging copy if the previous readback has been
+    // fully drained - the staging buffers are still mapped otherwise, and
+    // copying into a mapped buffer is invalid. The GPU simulation itself
+    // (above) is completely unaffected by this and always advances.
+    if !self.readback_pending {
+      compute_encoder.copy_buffer_to_buffer(result_vel, 0, &self.velocities_staging, 0, (vel_size * 8) as wgpu::BufferAddress);
+      compute_encoder.copy_buffer_to_buffer(result_smoke, 0, &self.smoke_staging, 0, (size * 4) as wgpu::BufferAddress);
+    }
 
-    // Since step must function synchronously on the CPU-side exactly like openGL, 
-    // submit what we have recorded right now!
+    // Submit and move on immediately - no blocking wait here.
     ctx.queue.submit(std::iter::once(compute_encoder.finish()));
 
-    // Wait and sync GPU state
-    let vel_slice = self.velocities_staging.slice(..);
-    let smoke_slice = self.smoke_staging.slice(..);
-
-    let (tx1, rx1) = std::sync::mpsc::channel();
-    vel_slice.map_async(wgpu::MapMode::Read, move |res| tx1.send(res).unwrap());
-    
-    let (tx2, rx2) = std::sync::mpsc::channel();
-    smoke_slice.map_async(wgpu::MapMode::Read, move |res| tx2.send(res).unwrap());
-
-    ctx.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-
-    rx1.recv().unwrap().unwrap();
-    rx2.recv().unwrap().unwrap();
-
-    let vel_data = vel_slice.get_mapped_range().unwrap();
-    self.velocities.copy_from_slice(bytemuck::cast_slice(&vel_data));
-    drop(vel_data);
-    self.velocities_staging.unmap();
-
-    let smoke_data = smoke_slice.get_mapped_range().unwrap();
-    self.smoke.copy_from_slice(bytemuck::cast_slice(&smoke_data));
-    drop(smoke_data);
-    self.smoke_staging.unmap();
+    if !self.readback_pending {
+      self.begin_readback();
+    }
 
     // Advance frame
     self.is_even_frame = !self.is_even_frame;

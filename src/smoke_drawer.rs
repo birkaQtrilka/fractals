@@ -196,7 +196,7 @@ impl Updater for SmokeDrawer {
         depth_slice: None,
         resolve_target: None,
         ops: wgpu::Operations {
-          load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+          load: wgpu::LoadOp::Clear(wgpu::Color { r: 0.0, g: 0.1, b: 0.2, a: 1.0 }), // Navy blue
           store: wgpu::StoreOp::Store,
         },
       })],
