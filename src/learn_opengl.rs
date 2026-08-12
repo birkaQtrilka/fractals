@@ -2,7 +2,7 @@ use ogl33::*;
 use std::os::raw::c_void;
 use std::ffi::CString;
 
-use crate::compute_ext::{ComputeExt, GL_COMPUTE_SHADER};
+use crate::compute_ext::{ComputeExt, GL_COMPUTE_SHADER, GL_SHADER_STORAGE_BUFFER};
 
 /// Sets the color to clear to when clearing the screen.
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) {
@@ -424,4 +424,28 @@ impl ComputeProgram {
   pub fn get_unif_location(&self, name: &str) -> i32 {
     unsafe { return glGetUniformLocation(self.0, CString::new(name).unwrap().as_ptr()) }
   }
+
+  pub fn upload<T>(ssbo: GLuint, data: &[T]) {
+      unsafe {
+          glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+          glBufferSubData(
+              GL_SHADER_STORAGE_BUFFER, 0,
+              (data.len() * std::mem::size_of::<T>()) as isize,
+              data.as_ptr().cast(),
+          );
+      }
+  }
+
+  pub fn download<T>(ssbo: GLuint, data: &mut [T]) {
+      unsafe {
+          glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+          glGetBufferSubData(
+              GL_SHADER_STORAGE_BUFFER, 0,
+              (data.len() * std::mem::size_of::<T>()) as isize,
+              data.as_mut_ptr().cast(),
+          );
+      }
+  }
+
+  
 }

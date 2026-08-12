@@ -55,7 +55,7 @@ impl GridGpu {
 
         let mut velocities = vec![Pair::new(0.0, 0.0); vel_size];
         let smoke = vec![0.0_f32; size];
-        let mut solid_map = vec![false; size];
+        let solid_map = vec![false; size];
 
         // Init Boundary Condition
         for i in 0..size {
@@ -114,7 +114,7 @@ impl GridGpu {
     // Call this explicitly if you manually edit the CPU-side `solid_map`!
     pub fn upload_solid_map(&self) {
         let as_u32: Vec<u32> = self.solid_map.iter().map(|&b| b as u32).collect();
-        Self::upload(self.solid_map_ssbo, &as_u32);
+        ComputeProgram::upload(self.solid_map_ssbo, &as_u32);
     }
 
     pub fn set_velocities(&mut self, pressure_index: usize, t: Option<f32>, l: Option<f32>, b: Option<f32>, r: Option<f32>) {
@@ -148,35 +148,13 @@ impl GridGpu {
         self.smoke_dirty = true;
     }
 
-    fn upload<T>(ssbo: GLuint, data: &[T]) {
-        unsafe {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-            glBufferSubData(
-                GL_SHADER_STORAGE_BUFFER, 0,
-                (data.len() * std::mem::size_of::<T>()) as isize,
-                data.as_ptr().cast(),
-            );
-        }
-    }
-
-    fn download<T>(ssbo: GLuint, data: &mut [T]) {
-        unsafe {
-            glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-            glGetBufferSubData(
-                GL_SHADER_STORAGE_BUFFER, 0,
-                (data.len() * std::mem::size_of::<T>()) as isize,
-                data.as_mut_ptr().cast(),
-            );
-        }
-    }
-
     pub fn step(&mut self, ext: &ComputeExt, pressure_iterations: u32) {
         if self.velocities_dirty {
-            Self::upload(self.velocities_ssbo, &self.velocities);
+            ComputeProgram::upload(self.velocities_ssbo, &self.velocities);
             self.velocities_dirty = false;
         }
         if self.smoke_dirty {
-            Self::upload(self.smoke_ssbo, &self.smoke);
+            ComputeProgram::upload(self.smoke_ssbo, &self.smoke);
             self.smoke_dirty = false;
         }
 
@@ -248,7 +226,7 @@ impl GridGpu {
         }
 
         // Pull results back down for the Interactor/Drawer
-        Self::download(self.velocities_ssbo, &mut self.velocities);
-        Self::download(self.smoke_ssbo, &mut self.smoke);
+        ComputeProgram::download(self.velocities_ssbo, &mut self.velocities);
+        ComputeProgram::download(self.smoke_ssbo, &mut self.smoke);
     }
 }

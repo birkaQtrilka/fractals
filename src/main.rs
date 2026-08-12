@@ -2,7 +2,6 @@
 mod learn_opengl;
 mod updater;
 mod input_handling;
-mod smoke_grid;
 mod bilinear;
 mod smoke_data;
 mod smoke_runner;
