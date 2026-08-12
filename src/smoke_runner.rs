@@ -1,8 +1,8 @@
 use std::{cell::{RefCell, RefMut}, rc::Rc};
 
-use queues::IsQueue;
+use wgpu::{Device, Queue};
 
-use crate::{Context, compute_ext::ComputeExt, input_handling::InputHandler, grid_gpu::GridGpu, updater::Updater, smoke_drawer::SmokeDrawer, smoke_interactor::GridInteractor};
+use crate::{Context, input_handling::InputHandler, grid_gpu::GridGpu, updater::Updater, smoke_drawer::SmokeDrawer, smoke_interactor::GridInteractor};
 
 pub struct Smoke {
   pub time_step: f32,
@@ -11,7 +11,8 @@ pub struct Smoke {
   drawer: SmokeDrawer,
   interactor: Rc<RefCell<GridInteractor>>,
   input: Rc<RefCell<InputHandler>>,
-  compute_ext: Rc<ComputeExt>,
+  device: Rc<Device>,
+  queue: Rc<Queue>,
   pressure_iterations: u32,
 }
 
@@ -24,7 +25,8 @@ impl Smoke {
     density: f32,
     time_step: f32,
     input: Rc<RefCell<InputHandler>>,
-    compute_ext: Rc<ComputeExt>,
+    device: Rc<Device>,
+    queue: Rc<Queue>,
   ) -> Smoke {
     let cell_size = (width / cell_count_x as f32).min(height / cell_count_y as f32);
 
@@ -51,7 +53,8 @@ impl Smoke {
       grid,
       interactor,
       input,
-      compute_ext,
+      device,
+      queue,
       pressure_iterations: 30,
     }
   }
