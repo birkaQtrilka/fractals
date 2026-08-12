@@ -43,7 +43,7 @@ impl SmokeDrawer {
       mapped_at_creation: false,
     });
 
-    // 2. Texture & Sampler
+    // 2. Texture
     let texture = device.create_texture(&wgpu::TextureDescriptor {
       label: Some("SmokeDrawer Texture"),
       size: wgpu::Extent3d {
@@ -61,15 +61,6 @@ impl SmokeDrawer {
 
     let texture_view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-      label: Some("SmokeDrawer Sampler"),
-      address_mode_u: wgpu::AddressMode::ClampToEdge,
-      address_mode_v: wgpu::AddressMode::ClampToEdge,
-      address_mode_w: wgpu::AddressMode::ClampToEdge,
-      mag_filter: wgpu::FilterMode::Nearest,
-      min_filter: wgpu::FilterMode::Nearest,
-      ..Default::default()
-    });
     drop(grid_ref);
     
     // 3. Render Pipeline Setup
@@ -128,10 +119,6 @@ impl SmokeDrawer {
           binding: 0,
           resource: wgpu::BindingResource::TextureView(&texture_view),
         },
-        wgpu::BindGroupEntry {
-          binding: 1,
-          resource: wgpu::BindingResource::Sampler(&sampler),
-        }
       ],
     });
 
