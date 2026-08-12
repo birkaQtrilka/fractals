@@ -1,5 +1,6 @@
 use std::{cell::{RefCell, RefMut}, rc::Rc};
 
+use queues::IsQueue;
 use wgpu::{Device, Queue};
 
 use crate::{Context, input_handling::InputHandler, grid_gpu::GridGpu, updater::Updater, smoke_drawer::SmokeDrawer, smoke_interactor::GridInteractor};

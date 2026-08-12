@@ -1,4 +1,5 @@
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct Pair {
   pub top: f32,
   pub left: f32
@@ -13,7 +14,8 @@ impl Pair {
   }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct Cell{
   pub t: f32,
   pub l: f32,
