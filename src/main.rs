@@ -12,7 +12,7 @@ mod smoke_runner;
 mod smoke_drawer;
 mod smoke_interactor;
 mod compute_ext;
-mod pressure_solver;
+mod grid_gpu;
 
 use crate::compute_ext::ComputeExt;
 // use crate::flow_field::Field;
@@ -170,8 +170,8 @@ fn main() {
     Box::new(Smoke::start(
       ctx.window_w as f32, 
       ctx.window_h as f32, 
-      120,
       100,
+      90,
       1.0, 
       0.04, 
       Rc::clone(&ctx.input_handler),

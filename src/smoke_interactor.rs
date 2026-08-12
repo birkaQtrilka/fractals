@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 use queues::{IsQueue, Queue};
 
-use crate::{input_handling::{InputHandler, MouseButton, MouseEventData, MouseSubscription}, smoke_grid::Grid};
+use crate::{grid_gpu::GridGpu, input_handling::{InputHandler, MouseButton, MouseEventData, MouseSubscription}, smoke_grid::Grid};
 
 #[derive(Clone)]
 pub struct VelocityData {
@@ -26,14 +26,14 @@ pub struct GridInteractor {
   brush_radius: f32,
   velocity_force: f32,
   mouse_pressed_btn: MouseButton,
-  grid: Rc<RefCell<Grid>>,
+  grid: Rc<RefCell<GridGpu>>,
   mouse_up_sub: Option<MouseSubscription>,
   mouse_down_sub: Option<MouseSubscription>,
   mouse_move_sub: Option<MouseSubscription>,
 }
 
 impl GridInteractor {
-  pub fn new(grid: Rc<RefCell<Grid>>, brush_radius: f32, velocity_force: f32) -> GridInteractor {
+  pub fn new(grid: Rc<RefCell<GridGpu>>, brush_radius: f32, velocity_force: f32) -> GridInteractor {
     GridInteractor {
       is_dragging: false,
       velocity_q: Queue::new(),

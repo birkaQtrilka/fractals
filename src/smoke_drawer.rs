@@ -2,10 +2,10 @@ use std::{cell::RefCell, fs, rc::Rc};
 
 use ogl33::*;
 
-use crate::{Context, learn_opengl::ShaderProgram, program::Updater, smoke_grid::Grid};
+use crate::{Context, grid_gpu::GridGpu, learn_opengl::ShaderProgram, program::Updater, smoke_grid::Grid};
 
 pub struct SmokeDrawer {
-  grid: Rc<RefCell<Grid>>,
+  grid: Rc<RefCell<GridGpu>>,
   pixel_size: f32,
 
   u_cell_size: i32,
@@ -17,7 +17,7 @@ pub struct SmokeDrawer {
 }
 
 impl SmokeDrawer {
-  pub fn new(grid: Rc<RefCell<Grid>>, pixel_size: f32) -> SmokeDrawer {
+  pub fn new(grid: Rc<RefCell<GridGpu>>, pixel_size: f32) -> SmokeDrawer {
     let vert_shader = fs::read_to_string("assets/shaders/screen_uv.vs")
       .expect("Failed to read vertex shader file");
     let frag_shader = fs::read_to_string("assets/shaders/smoke.fs")
