@@ -10,13 +10,9 @@ struct GridUniforms {
 }
 
 @group(0) @binding(0) var<uniform> uniforms: GridUniforms;
-
-// Declared to match the Rust BindGroup layout, even if unused in this pass
-@group(0) @binding(1) var<storage, read> solid_map: array<u32>;
-
-@group(0) @binding(2) var<storage, read_write> pressures: array<f32>;
-@group(0) @binding(3) var<storage, read> rhs: array<f32>;
-@group(0) @binding(4) var<storage, read> inv_total: array<f32>;
+@group(0) @binding(1) var<storage, read_write> pressures: array<f32>;
+@group(0) @binding(2) var<storage, read> rhs: array<f32>;
+@group(0) @binding(3) var<storage, read> inv_total: array<f32>;
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {

@@ -219,8 +219,9 @@ impl GridGpu {
 
     // Solve (Red-Black iterations ping-pong uniformly only via Parity, not layout variables)
     // Bindings: Uniform, SolidMap, Pressures (in/out), Rhs (in), InvTotal (in)
-    let solve_bg_0 = build_bg(&solve_pipeline, "solve_0", &[&uniform_buf_0, &solid_map_buffer, &pressures_buffer, &rhs_buffer, &inv_total_buffer]);
-    let solve_bg_1 = build_bg(&solve_pipeline, "solve_1", &[&uniform_buf_1, &solid_map_buffer, &pressures_buffer, &rhs_buffer, &inv_total_buffer]);
+// Solve (Red-Black iterations ping-pong uniformly only via Parity, not layout variables)
+    let solve_bg_0 = build_bg(&solve_pipeline, "solve_0", &[&uniform_buf_0, &pressures_buffer, &rhs_buffer, &inv_total_buffer]);
+    let solve_bg_1 = build_bg(&solve_pipeline, "solve_1", &[&uniform_buf_1, &pressures_buffer, &rhs_buffer, &inv_total_buffer]);
 
     // Update Velocities: Uniform, SolidMap, Pressures (in), Vel (in/out)
     let update_vel_bg_a = build_bg(&update_vel_pipeline, "update_vel_a", &[&uniform_buf_0, &solid_map_buffer, &pressures_buffer, &velocities_a_buffer]);
@@ -388,22 +389,22 @@ impl GridGpu {
     
     let (tx2, rx2) = std::sync::mpsc::channel();
     smoke_slice.map_async(wgpu::MapMode::Read, move |res| tx2.send(res).unwrap());
-      
+
     ctx.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
-      
+
     rx1.recv().unwrap().unwrap();
     rx2.recv().unwrap().unwrap();
-      
+
     let vel_data = vel_slice.get_mapped_range().unwrap();
     self.velocities.copy_from_slice(bytemuck::cast_slice(&vel_data));
     drop(vel_data);
     self.velocities_staging.unmap();
-      
+
     let smoke_data = smoke_slice.get_mapped_range().unwrap();
     self.smoke.copy_from_slice(bytemuck::cast_slice(&smoke_data));
     drop(smoke_data);
     self.smoke_staging.unmap();
-      
+
     // Advance frame
     self.is_even_frame = !self.is_even_frame;
   }

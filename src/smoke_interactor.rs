@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 use queues::{IsQueue, Queue};
 
-use crate::{grid_gpu::GridGpu, input_handling::{InputHandler, MouseButton, MouseEventData, MouseSubscription}, smoke_grid::Grid};
+use crate::{grid_gpu::GridGpu, input_handling::{InputHandler, MouseButton, MouseEventData, MouseSubscription}};
 
 #[derive(Clone)]
 pub struct VelocityData {
@@ -102,7 +102,7 @@ impl GridInteractor {
     let pos = (e.x as f32, e.y as f32);
 
     // Prevent unnecessary loops if the mouse didn't actually move
-    if e.delta_x == 0 && e.delta_y == 0 {
+    if e.delta_x == 0.0 && e.delta_y == 0.0 {
       return;
     }
 

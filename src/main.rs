@@ -104,7 +104,14 @@ impl ApplicationHandler for App {
       self.window = Some(window.clone());
 
       // --- WGPU INITIALIZATION ---
-      let instance = wgpu::Instance::default();
+      let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        // Restricts to Vulkan, Metal, and DX12. Completely disables OpenGL (WGL) probing.
+        backends: wgpu::Backends::PRIMARY,
+        flags: wgpu::InstanceFlags::default(),
+        memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
+        backend_options: wgpu::BackendOptions::default(),
+        display: None,
+      });
       let surface = instance.create_surface(window.clone()).unwrap();
 
       let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -118,7 +125,8 @@ impl ApplicationHandler for App {
         &wgpu::DeviceDescriptor {
           label: None,
           required_features: wgpu::Features::empty(),
-          required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
+          // Use default WebGPU limits which include Compute Shader support!
+          required_limits: wgpu::Limits::default(),
           ..Default::default()
         },
       )).expect("Failed to create device");

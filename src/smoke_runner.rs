@@ -36,13 +36,21 @@ impl Smoke {
       cell_count_y,
       density, 
       time_step, 
-      cell_size
+      cell_size,
+      Rc::clone(&device),
+      Rc::clone(&queue)
     )));
     {
       Self::init_solid_map(&mut grid.borrow_mut());
     }
 
-    let drawer = SmokeDrawer::new(Rc::clone(&grid), height);
+    let drawer = SmokeDrawer::new(
+      Rc::clone(&grid), 
+      height, 
+      &device, 
+      wgpu::TextureFormat::Bgra8UnormSrgb // Or ideally pass the `format` from your `config` in main.rs!
+    );
+
     let interactor = Rc::new(RefCell::new(
       GridInteractor::new(Rc::clone(&grid), 30.0, 10.0)
     ));
@@ -118,7 +126,7 @@ impl Updater for Smoke {
     GridInteractor::detach(&self.interactor, &mut self.input.borrow_mut());
   }
 
-  fn update(&mut self, ctx: &Context) {
+  fn update(&mut self, ctx: &mut Context) {
     self.accumulator += ctx.delta_time;
 
     while self.accumulator >= self.time_step {
@@ -128,9 +136,8 @@ impl Updater for Smoke {
 
         self.apply_velocities(&mut grid_mut, &mut interactor_mut);
         self.apply_smoke(&mut grid_mut, &mut interactor_mut);
-
         // GridGpu now encapsulates the entire compute pass seamlessly.
-        grid_mut.step(&self.compute_ext, self.pressure_iterations);
+        grid_mut.step(ctx, self.pressure_iterations);
       }
       self.accumulator -= self.time_step;
     }
