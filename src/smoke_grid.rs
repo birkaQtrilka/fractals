@@ -164,7 +164,27 @@ impl Grid {
     }
   }
 
-pub fn update_velocities(&mut self) { 
+  pub fn density(&self) -> f32 {
+    self.density
+  }
+
+  /// Same math as prepare_cycle_data's rhs computation, minus the ady scale
+  /// (the solver applies that itself so it doesn't need a Grid reference).
+  pub fn compute_divergence(&self) -> Vec<f32> {
+    let mut divergence = vec![0.0_f32; self.width * self.height];
+    for i in 0..self.pressures.len() {
+      if self.is_solid(i) { continue; }
+      let v = self.get_velocities(i);
+      divergence[i] = v.r - v.l + v.b - v.t;
+    }
+    divergence
+  }
+
+  pub fn set_pressures(&mut self, pressures: &[f32]) {
+    self.pressures.copy_from_slice(pressures);
+  }
+
+  pub fn update_velocities(&mut self) { 
     let k = self.time_step / (self.cell_size * self.density);
     
     for i in 0..self.pressures.len() {

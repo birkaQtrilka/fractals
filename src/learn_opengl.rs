@@ -2,6 +2,8 @@ use ogl33::*;
 use std::os::raw::c_void;
 use std::ffi::CString;
 
+use crate::compute_ext::{ComputeExt, GL_COMPUTE_SHADER};
+
 /// Sets the color to clear to when clearing the screen.
 pub fn clear_color(r: f32, g: f32, b: f32, a: f32) {
   unsafe { glClearColor(r, g, b, a) }
@@ -89,6 +91,8 @@ pub enum ShaderType {
   ///
   /// Also other values, but mostly color.
   Fragment = GL_FRAGMENT_SHADER as isize,
+
+  Compute = GL_COMPUTE_SHADER as isize,
 }
 
 /// A handle to a [Shader
@@ -393,5 +397,31 @@ where
         }
     }
     pixel_data
-    // create_gl_texture_from_bytes(width, height, &pixel_data)
+}
+
+pub struct ComputeProgram(pub GLuint);
+
+impl ComputeProgram {
+  pub fn from_source(src: &str) -> Result<Self, String> {
+    let shader = Shader::from_source(ShaderType::Compute, src)?;
+    let prog = ShaderProgram::new().ok_or("Couldn't allocate program")?;
+    prog.attach_shader(&shader);
+    prog.link_program();
+    shader.delete();
+    if prog.link_success() {
+      Ok(Self(prog.0))
+    } else {
+      Err(prog.info_log())
+    }
+  }
+
+  pub fn dispatch(&self, ext: &ComputeExt, x: u32, y: u32, z: u32) {
+    unsafe {
+      ogl33::glUseProgram(self.0);
+      (ext.dispatch_compute)(x, y, z);
+    }
+  }
+  pub fn get_unif_location(&self, name: &str) -> i32 {
+    unsafe { return glGetUniformLocation(self.0, CString::new(name).unwrap().as_ptr()) }
+  }
 }

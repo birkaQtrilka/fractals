@@ -11,8 +11,10 @@ mod smoke_data;
 mod smoke_runner;
 mod smoke_drawer;
 mod smoke_interactor;
+mod compute_ext;
+mod pressure_solver;
 
-
+use crate::compute_ext::ComputeExt;
 // use crate::flow_field::Field;
 use crate::input_handling::*;
 use crate::julia_set::JuliaSet;
@@ -75,17 +77,10 @@ fn map_range(val: f64, in_min: f64, in_max: f64, out_min: u32, out_max: u32) -> 
 
 fn main() {
   let sdl = Sdl::init(init::InitFlags::EVERYTHING);
-  sdl.set_gl_context_major_version(3).unwrap();
+  sdl.set_gl_context_major_version(4).unwrap();
   sdl.set_gl_context_minor_version(3).unwrap();
   sdl.set_gl_profile(video::GlProfile::Core).unwrap();
   
-  #[cfg(target_os = "macos")]
-  {
-    sdl
-      .set_gl_context_flags(video::GlContextFlags::FORWARD_COMPATIBLE)
-      .unwrap();
-  }
-
   let win_args = video::CreateWinArgs {
     title: WINDOW_TITLE,
     width: 900,
@@ -102,7 +97,21 @@ fn main() {
     load_gl_with(|f_name| win.get_proc_address(f_name as *const u8));
     let _ = win.set_swap_interval(GlSwapInterval::Vsync);
   }
+  let compute_extern = unsafe {
+    Rc::new(ComputeExt::load(|name| win.get_proc_address(name.as_ptr().cast())))
+  };
+  
+  // unsafe {
+  //   glEnable(GL_DEBUG_OUTPUT);
+  //   glDebugMessageCallback(Some(debug_callback), std::ptr::null());
+  // }
 
+  // assert!(!compute_extern.dispatch_compute.is_null());
+  // assert!(!compute_extern.memory_barrier.is_null());
+  
+  let version = unsafe { std::ffi::CStr::from_ptr(glGetString(GL_VERSION) as *const i8) };
+  println!("OpenGL version: {:?}", version);
+  
   learn::clear_color(0.2, 0.3, 0.3, 1.0);
 
   let vao = VertexArray::new().expect("Couldn't make vao");
@@ -165,7 +174,8 @@ fn main() {
       100,
       1.0, 
       0.04, 
-      Rc::clone(&ctx.input_handler)
+      Rc::clone(&ctx.input_handler),
+      Rc::clone(&compute_extern),
     )),
   ];
   let mut world_index = 2;

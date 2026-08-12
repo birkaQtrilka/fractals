@@ -1,0 +1,25 @@
+#version 430
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 1) buffer Pressures         { float pressures[]; };
+layout(std430, binding = 2) readonly buffer Rhs      { float rhs[]; };
+layout(std430, binding = 3) readonly buffer InvTotal { float inv_total[]; };
+
+uniform int width;
+uniform int height;
+uniform int parity; // 0 = red pass, 1 = black pass
+
+void main() {
+  ivec2 p = ivec2(gl_GlobalInvocationID.xy);
+  if (p.x >= width || p.y >= height) return;
+  if ((p.x + p.y) % 2 != parity) return; // only this pass's color
+
+  int i = p.y * width + p.x;
+  float it = inv_total[i];
+  if (it == 0.0) { pressures[i] = 0.0; return; }
+
+  float p_sum = pressures[i - width] + pressures[i - 1]
+              + pressures[i + 1]     + pressures[i + width];
+
+  pressures[i] = (p_sum + rhs[i]) * it;
+}
