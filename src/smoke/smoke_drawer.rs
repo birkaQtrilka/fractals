@@ -2,7 +2,8 @@ use std::{cell::RefCell, fs, rc::Rc};
 
 use ogl33::*;
 
-use crate::{Context, grid_gpu::GridGpu, learn_opengl::ShaderProgram, program::Updater, smoke_grid::Grid};
+use crate::{Context, learn_opengl::ShaderProgram, program::Updater, smoke::grid_gpu::GridGpu};
+
 
 pub struct SmokeDrawer {
   grid: Rc<RefCell<GridGpu>>,

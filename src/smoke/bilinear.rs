@@ -1,4 +1,4 @@
-use crate::smoke_data::Pair;
+use crate::smoke::smoke_data::Pair;
 
 // Gets horizontal velocity (U) from the left face of cell(x, y)
 pub fn get_u(x: usize, y: usize, map: &[Pair], width: usize, height: usize) -> f32 {

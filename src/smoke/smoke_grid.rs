@@ -1,5 +1,5 @@
-use crate::bilinear;
-use crate::smoke_data::{Pair, Cell, SolverData};
+use crate::smoke::bilinear;
+use crate::smoke::smoke_data::{Pair, Cell, SolverData};
 const INVALID: f32 = -100_000_000.0;
 
 pub struct Grid {

@@ -1,7 +1,7 @@
 use ogl33::*;
 use crate::compute_ext::{ComputeExt, GL_SHADER_STORAGE_BUFFER, GL_SHADER_STORAGE_BARRIER_BIT};
 use crate::learn_opengl::{ComputeProgram};
-use crate::smoke_data::{Pair, Cell};
+use crate::smoke::smoke_data::{Pair, Cell};
 
 const INVALID: f32 = -100_000_000.0;
 
@@ -69,11 +69,11 @@ impl GridGpu {
         velocities[size + height + width] = Pair::new(INVALID, INVALID);
 
         // Precompile compute shaders
-        let prepare_prog = ComputeProgram::from_source(include_str!("../assets/shaders/prepare_cycle_data.comp")).unwrap();
-        let solve_prog = ComputeProgram::from_source(include_str!("../assets/shaders/red_black_pressure.comp")).unwrap();
-        let update_vel_prog = ComputeProgram::from_source(include_str!("../assets/shaders/update_velocities.comp")).unwrap();
-        let advect_vel_prog = ComputeProgram::from_source(include_str!("../assets/shaders/advect_velocities.comp")).unwrap();
-        let advect_smoke_prog = ComputeProgram::from_source(include_str!("../assets/shaders/advect_smoke.comp")).unwrap();
+        let prepare_prog = ComputeProgram::from_source(include_str!("../../assets/shaders/prepare_cycle_data.comp")).unwrap();
+        let solve_prog = ComputeProgram::from_source(include_str!("../../assets/shaders/red_black_pressure.comp")).unwrap();
+        let update_vel_prog = ComputeProgram::from_source(include_str!("../../assets/shaders/update_velocities.comp")).unwrap();
+        let advect_vel_prog = ComputeProgram::from_source(include_str!("../../assets/shaders/advect_velocities.comp")).unwrap();
+        let advect_smoke_prog = ComputeProgram::from_source(include_str!("../../assets/shaders/advect_smoke.comp")).unwrap();
 
         let mut grid = GridGpu {
             width, height, density, time_step, cell_size,

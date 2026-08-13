@@ -5,14 +5,8 @@ mod input_handling;
 mod mover;
 mod julia_set;
 mod flow_field;
-mod smoke_grid;
-mod bilinear;
-mod smoke_data;
-mod smoke_runner;
-mod smoke_drawer;
-mod smoke_interactor;
+mod smoke;
 mod compute_ext;
-mod grid_gpu;
 
 use crate::compute_ext::ComputeExt;
 // use crate::flow_field::Field;
@@ -20,7 +14,7 @@ use crate::input_handling::*;
 use crate::julia_set::JuliaSet;
 use crate::mover::MoveData;
 use crate::program::{Mandelbrot, Updater};
-use crate::smoke_runner::Smoke;
+use crate::smoke::smoke_runner::Smoke;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -170,8 +164,8 @@ fn main() {
     Box::new(Smoke::start(
       ctx.window_w as f32, 
       ctx.window_h as f32, 
-      100,
-      90,
+      600,
+      500,
       1.0, 
       0.04, 
       Rc::clone(&ctx.input_handler),

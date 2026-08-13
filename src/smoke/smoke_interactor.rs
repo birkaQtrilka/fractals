@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 use queues::{IsQueue, Queue};
 
-use crate::{grid_gpu::GridGpu, input_handling::{InputHandler, MouseButton, MouseEventData, MouseSubscription}, smoke_grid::Grid};
+use crate::{smoke::grid_gpu::GridGpu, input_handling::{InputHandler, MouseButton, MouseEventData, MouseSubscription}};
 
 #[derive(Clone)]
 pub struct VelocityData {

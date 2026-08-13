@@ -2,7 +2,7 @@ use std::{cell::{RefCell, RefMut}, rc::Rc};
 
 use queues::IsQueue;
 
-use crate::{Context, compute_ext::ComputeExt, input_handling::InputHandler, grid_gpu::GridGpu, program::Updater, smoke_drawer::SmokeDrawer, smoke_grid::Grid, smoke_interactor::GridInteractor};
+use crate::{Context, compute_ext::ComputeExt, input_handling::InputHandler, program::Updater, smoke::{grid_gpu::GridGpu, smoke_drawer::SmokeDrawer, smoke_interactor::GridInteractor}};
 
 pub struct Smoke {
   pub time_step: f32,
@@ -75,7 +75,7 @@ impl Smoke {
   }
 
   fn init_solid_map(grid: &mut RefMut<'_, GridGpu>) {
-    let radius = 10;
+    let radius = 100;
     let w = grid.width;
     let h = grid.height;
     let center_x = w / 2;
