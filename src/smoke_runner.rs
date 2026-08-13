@@ -130,7 +130,7 @@ impl Updater for Smoke {
   fn update(&mut self, ctx: &mut Context) {
     self.accumulator += ctx.delta_time;
 
-    while self.accumulator >= self.time_step {
+    // while self.accumulator >= self.time_step {
       {
         let mut grid_mut = self.grid.borrow_mut();
         let mut interactor_mut = self.interactor.borrow_mut();
@@ -141,7 +141,7 @@ impl Updater for Smoke {
         grid_mut.step(ctx, self.pressure_iterations);
       }
       self.accumulator -= self.time_step;
-    }
+    // }
     
     self.drawer.update(ctx);
   }

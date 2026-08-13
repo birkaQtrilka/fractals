@@ -20,74 +20,48 @@ struct GridUniforms {
 }
 
 pub struct GridGpu {
-  pub width: usize,
-  pub height: usize,
-  pub density: f32,
-  pub time_step: f32,
-  pub cell_size: f32,
+    pub width: usize,
+    pub height: usize,
+    pub density: f32,
+    pub time_step: f32,
+    pub cell_size: f32,
 
-  pub smoke: Vec<f32>,
-  pub velocities: Vec<Pair>,
-  pub solid_map: Vec<bool>,
+    pub smoke: Vec<f32>,
+    pub velocities: Vec<Pair>,
+    pub solid_map: Vec<bool>,
 
-  velocities_dirty: bool,
-  smoke_dirty: bool,
+    pub velocities_dirty: bool,
+    pub smoke_dirty: bool,
 
-  device: Rc<wgpu::Device>,
-  queue: Rc<wgpu::Queue>,
+    queue: Rc<wgpu::Queue>,
 
-  solid_map_buffer: wgpu::Buffer,
-  pressures_buffer: wgpu::Buffer,
-  rhs_buffer: wgpu::Buffer,
-  inv_total_buffer: wgpu::Buffer,
+    solid_map_buffer: wgpu::Buffer,
 
-  velocities_a_buffer: wgpu::Buffer,
-  velocities_b_buffer: wgpu::Buffer,
-  smoke_a_buffer: wgpu::Buffer,
-  smoke_b_buffer: wgpu::Buffer,
+    velocities_a_buffer: wgpu::Buffer,
+    velocities_b_buffer: wgpu::Buffer,
+    smoke_a_buffer: wgpu::Buffer,
+    smoke_b_buffer: wgpu::Buffer,
 
-  velocities_staging: wgpu::Buffer,
-  smoke_staging: wgpu::Buffer,
+    prepare_pipeline: wgpu::ComputePipeline,
+    solve_pipeline: wgpu::ComputePipeline,
+    update_vel_pipeline: wgpu::ComputePipeline,
+    advect_vel_pipeline: wgpu::ComputePipeline,
+    advect_smoke_pipeline: wgpu::ComputePipeline,
 
-  uniform_buf_0: wgpu::Buffer,
-  uniform_buf_1: wgpu::Buffer,
+    prepare_bg_a: wgpu::BindGroup,
+    prepare_bg_b: wgpu::BindGroup,
+    solve_bg_0: wgpu::BindGroup,
+    solve_bg_1: wgpu::BindGroup,
+    update_vel_bg_a: wgpu::BindGroup,
+    update_vel_bg_b: wgpu::BindGroup,
+    advect_vel_bg_a: wgpu::BindGroup,
+    advect_vel_bg_b: wgpu::BindGroup,
+    advect_smoke_bg_a: wgpu::BindGroup,
+    advect_smoke_bg_b: wgpu::BindGroup,
 
-  prepare_pipeline: wgpu::ComputePipeline,
-  solve_pipeline: wgpu::ComputePipeline,
-  update_vel_pipeline: wgpu::ComputePipeline,
-  advect_vel_pipeline: wgpu::ComputePipeline,
-  advect_smoke_pipeline: wgpu::ComputePipeline,
-
-  prepare_bg_a: wgpu::BindGroup,
-  prepare_bg_b: wgpu::BindGroup,
-
-  solve_bg_0: wgpu::BindGroup,
-  solve_bg_1: wgpu::BindGroup,
-
-  update_vel_bg_a: wgpu::BindGroup,
-  update_vel_bg_b: wgpu::BindGroup,
-
-  advect_vel_bg_a: wgpu::BindGroup,
-  advect_vel_bg_b: wgpu::BindGroup,
-
-  advect_smoke_bg_a: wgpu::BindGroup,
-  advect_smoke_bg_b: wgpu::BindGroup,
-
-  group_x: u32,
-  group_y: u32,
-
-  is_even_frame: bool,
-
-  // --- Async, non-blocking CPU readback state ---
-  // The GPU keeps ping-ponging every frame regardless of whether the CPU
-  // has consumed the previous readback yet. `velocities` / `smoke` are
-  // therefore a "best effort, ~1 frame stale" mirror of GPU state - fine
-  // for brush/UI reads, never worth blocking the frame for.
-  readback_pending: bool,
-  vel_ready: bool,
-  smoke_ready: bool,
-  vel_rx: Option<std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>>,
-  smoke_rx: Option<std::sync::mpsc::Receiver<Result<(), wgpu::BufferAsyncError>>>,
+    group_x: u32,
+    group_y: u32,
+    pub is_even_frame: bool,
 }
 
 impl GridGpu {
@@ -174,20 +148,6 @@ impl GridGpu {
     let smoke_a_buffer = build_storage("smoke_a", smoke_bytes);
     let smoke_b_buffer = build_storage("smoke_b", smoke_bytes);
 
-    // Staging buffers for downloading GPU results back to CPU
-    let velocities_staging = device.create_buffer(&wgpu::BufferDescriptor {
-      label: Some("velocities_staging"),
-      size: (vel_size * 8) as u64,
-      usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-      mapped_at_creation: false,
-    });
-    let smoke_staging = device.create_buffer(&wgpu::BufferDescriptor {
-      label: Some("smoke_staging"),
-      size: (size * 4) as u64,
-      usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-      mapped_at_creation: false,
-    });
-
     // 3. Shaders and Pipelines (Implicit auto-generated bind group layouts)
     let make_pipeline = |name: &str, source: &str| {
       let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -249,12 +209,10 @@ impl GridGpu {
       width, height, density, time_step, cell_size,
       smoke, velocities, solid_map,
       velocities_dirty: true, smoke_dirty: true,
-      device, queue,
+      queue,
 
-      solid_map_buffer, pressures_buffer, rhs_buffer, inv_total_buffer,
+      solid_map_buffer, 
       velocities_a_buffer, velocities_b_buffer, smoke_a_buffer, smoke_b_buffer,
-      velocities_staging, smoke_staging,
-      uniform_buf_0, uniform_buf_1,
 
       prepare_pipeline, solve_pipeline, update_vel_pipeline, advect_vel_pipeline, advect_smoke_pipeline,
       prepare_bg_a, prepare_bg_b,
@@ -267,12 +225,6 @@ impl GridGpu {
       group_y: (height as u32 + 7) / 8,
 
       is_even_frame: true,
-
-      readback_pending: false,
-      vel_ready: false,
-      smoke_ready: false,
-      vel_rx: None,
-      smoke_rx: None,
     };
 
     grid.init_solid_map();
@@ -328,159 +280,65 @@ impl GridGpu {
     self.smoke_dirty = true;
   }
 
-  /// Non-blocking: drains a previously-kicked-off readback if the GPU has
-  /// finished mapping the staging buffers. Does nothing (and does NOT
-  /// block) if the mapping isn't ready yet - we'll just try again next
-  /// `step()`. This replaces the old `wait_indefinitely()` + `recv()`
-  /// pair that stalled the CPU (and starved the OS event loop) every frame.
-  fn try_finish_readback(&mut self, ctx: &Context) {
-    if !self.readback_pending {
-      return;
-    }
-
-    // Advance any pending map_async callbacks without blocking.
-    let _ = ctx.device.poll(wgpu::PollType::Poll);
-
-    if !self.vel_ready {
-      if let Some(rx) = &self.vel_rx {
-        if let Ok(res) = rx.try_recv() {
-          res.expect("velocity staging buffer failed to map");
-          self.vel_ready = true;
+    pub fn get_current_smoke_buffer(&self) -> &wgpu::Buffer {
+        if self.is_even_frame {
+            &self.smoke_a_buffer
+        } else {
+            &self.smoke_b_buffer
         }
-      }
     }
-    if !self.smoke_ready {
-      if let Some(rx) = &self.smoke_rx {
-        if let Ok(res) = rx.try_recv() {
-          res.expect("smoke staging buffer failed to map");
-          self.smoke_ready = true;
+
+    pub fn step(&mut self, ctx: &Context, pressure_iterations: u32) {
+        // FIX: If the CPU has new data (mouse/bar), upload it to BOTH buffers
+        // otherwise the simulation will "flicker" or overwrite the input on the next sub-step.
+        if self.velocities_dirty {
+            ctx.queue.write_buffer(&self.velocities_a_buffer, 0, bytemuck::cast_slice(&self.velocities));
+            ctx.queue.write_buffer(&self.velocities_b_buffer, 0, bytemuck::cast_slice(&self.velocities));
+            self.velocities_dirty = false;
         }
-      }
+
+        if self.smoke_dirty {
+            ctx.queue.write_buffer(&self.smoke_a_buffer, 0, bytemuck::cast_slice(&self.smoke));
+            ctx.queue.write_buffer(&self.smoke_b_buffer, 0, bytemuck::cast_slice(&self.smoke));
+            self.smoke_dirty = false;
+        }
+
+        let mut encoder = ctx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+        {
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Fluid Compute Pass"),
+                timestamp_writes: None,
+            });
+
+            cpass.set_pipeline(&self.prepare_pipeline);
+            cpass.set_bind_group(0, if self.is_even_frame { &self.prepare_bg_a } else { &self.prepare_bg_b }, &[]);
+            cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
+
+            cpass.set_pipeline(&self.solve_pipeline);
+            for _ in 0..pressure_iterations {
+                cpass.set_bind_group(0, &self.solve_bg_0, &[]);
+                cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
+                cpass.set_bind_group(0, &self.solve_bg_1, &[]);
+                cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
+            }
+
+            cpass.set_pipeline(&self.update_vel_pipeline);
+            cpass.set_bind_group(0, if self.is_even_frame { &self.update_vel_bg_a } else { &self.update_vel_bg_b }, &[]);
+            cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
+
+            cpass.set_pipeline(&self.advect_vel_pipeline);
+            cpass.set_bind_group(0, if self.is_even_frame { &self.advect_vel_bg_a } else { &self.advect_vel_bg_b }, &[]);
+            cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
+
+            cpass.set_pipeline(&self.advect_smoke_pipeline);
+            cpass.set_bind_group(0, if self.is_even_frame { &self.advect_smoke_bg_a } else { &self.advect_smoke_bg_b }, &[]);
+            cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
+        }
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+
+        // Toggle parity so the next frame uses the other buffer set
+        self.is_even_frame = !self.is_even_frame;
     }
-
-    if !(self.vel_ready && self.smoke_ready) {
-      // Still in flight - try again on a future frame.
-      return;
-    }
-
-    {
-      let vel_data = self.velocities_staging.slice(..).get_mapped_range().expect("velocities_staging not mapped");
-      self.velocities.copy_from_slice(bytemuck::cast_slice(&vel_data));
-    }
-    self.velocities_staging.unmap();
-
-    {
-      let smoke_data = self.smoke_staging.slice(..).get_mapped_range().expect("smoke_staging not mapped");
-      self.smoke.copy_from_slice(bytemuck::cast_slice(&smoke_data));
-    }
-    self.smoke_staging.unmap();
-
-    self.vel_rx = None;
-    self.smoke_rx = None;
-    self.vel_ready = false;
-    self.smoke_ready = false;
-    self.readback_pending = false;
-  }
-
-  /// Kicks off an async, non-blocking map of the staging buffers. Must
-  /// only be called once the previous readback has been fully drained
-  /// (staging buffers unmapped), otherwise wgpu will error trying to map
-  /// a buffer that's already mapped.
-  fn begin_readback(&mut self) {
-    let vel_slice = self.velocities_staging.slice(..);
-    let smoke_slice = self.smoke_staging.slice(..);
-
-    let (tx1, rx1) = std::sync::mpsc::channel();
-    vel_slice.map_async(wgpu::MapMode::Read, move |res| { let _ = tx1.send(res); });
-
-    let (tx2, rx2) = std::sync::mpsc::channel();
-    smoke_slice.map_async(wgpu::MapMode::Read, move |res| { let _ = tx2.send(res); });
-
-    self.vel_rx = Some(rx1);
-    self.smoke_rx = Some(rx2);
-    self.readback_pending = true;
-  }
-
-  pub fn step(&mut self, ctx: &Context, pressure_iterations: u32) {
-    // 0. Non-blockingly collect the readback we kicked off last frame (if any).
-    self.try_finish_readback(ctx);
-
-    // 1. Send CPU overrides down to GPU
-    if self.velocities_dirty {
-      let current_vel = if self.is_even_frame { &self.velocities_a_buffer } else { &self.velocities_b_buffer };
-      ctx.queue.write_buffer(current_vel, 0, bytemuck::cast_slice(&self.velocities));
-      self.velocities_dirty = false;
-    }
-
-    if self.smoke_dirty {
-      let current_smoke = if self.is_even_frame { &self.smoke_a_buffer } else { &self.smoke_b_buffer };
-      ctx.queue.write_buffer(current_smoke, 0, bytemuck::cast_slice(&self.smoke));
-      self.smoke_dirty = false;
-    }
-
-    // Creating an isolated ComputeEncoder so we can safely submit midway
-    let mut compute_encoder = ctx.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("Grid Compute Encoder") });
-
-    {
-      let mut cpass = compute_encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-        label: Some("Fluid Compute Pass"),
-        timestamp_writes: None,
-      });
-
-      // 1. Prepare Cycle Data
-      cpass.set_pipeline(&self.prepare_pipeline);
-      cpass.set_bind_group(0, if self.is_even_frame { &self.prepare_bg_a } else { &self.prepare_bg_b }, &[]);
-      cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
-
-      // 2. Solve Pressure (Red-Black iterations)
-      cpass.set_pipeline(&self.solve_pipeline);
-      for _ in 0..pressure_iterations {
-        cpass.set_bind_group(0, &self.solve_bg_0, &[]);
-        cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
-
-        cpass.set_bind_group(0, &self.solve_bg_1, &[]);
-        cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
-      }
-
-      // 3. Update Velocities
-      cpass.set_pipeline(&self.update_vel_pipeline);
-      cpass.set_bind_group(0, if self.is_even_frame { &self.update_vel_bg_a } else { &self.update_vel_bg_b }, &[]);
-      cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
-
-      // 4. Advect Velocities
-      cpass.set_pipeline(&self.advect_vel_pipeline);
-      cpass.set_bind_group(0, if self.is_even_frame { &self.advect_vel_bg_a } else { &self.advect_vel_bg_b }, &[]);
-      cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
-
-      // 5. Advect Smoke
-      cpass.set_pipeline(&self.advect_smoke_pipeline);
-      cpass.set_bind_group(0, if self.is_even_frame { &self.advect_smoke_bg_a } else { &self.advect_smoke_bg_b }, &[]);
-      cpass.dispatch_workgroups(self.group_x, self.group_y, 1);
-    }
-
-    // Determine the result buffers based on ping-pong states (advect writes to opposite buffers)
-    let result_vel = if self.is_even_frame { &self.velocities_b_buffer } else { &self.velocities_a_buffer };
-    let result_smoke = if self.is_even_frame { &self.smoke_b_buffer } else { &self.smoke_a_buffer };
-    let vel_size = (self.width + 1) * (self.height + 1);
-    let size = self.width * self.height;
-
-    // Only queue a fresh staging copy if the previous readback has been
-    // fully drained - the staging buffers are still mapped otherwise, and
-    // copying into a mapped buffer is invalid. The GPU simulation itself
-    // (above) is completely unaffected by this and always advances.
-    if !self.readback_pending {
-      compute_encoder.copy_buffer_to_buffer(result_vel, 0, &self.velocities_staging, 0, (vel_size * 8) as wgpu::BufferAddress);
-      compute_encoder.copy_buffer_to_buffer(result_smoke, 0, &self.smoke_staging, 0, (size * 4) as wgpu::BufferAddress);
-    }
-
-    // Submit and move on immediately - no blocking wait here.
-    ctx.queue.submit(std::iter::once(compute_encoder.finish()));
-
-    if !self.readback_pending {
-      self.begin_readback();
-    }
-
-    // Advance frame
-    self.is_even_frame = !self.is_even_frame;
-  }
 }

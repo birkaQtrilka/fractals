@@ -14,40 +14,29 @@ struct GridUniforms {
 @group(0) @binding(2) var<storage, read> pressures: array<f32>;
 @group(0) @binding(3) var<storage, read_write> velocities: array<vec2<f32>>;
 
-fn is_solid(idx: i32) -> bool {
-  return solid_map[idx] != 0u;
+fn is_solid(x: i32, y: i32) -> bool {
+    if (x < 0 || x >= uniforms.width || y < 0 || y >= uniforms.height) { return true; }
+    return solid_map[y * uniforms.width + x] != 0u;
 }
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-  let p = vec2<i32>(global_id.xy);
-  
-  if (p.x >= uniforms.width || p.y >= uniforms.height) {
-    return;
-  }
-  
-  let i = p.y * uniforms.width + p.x;
-  let vi = p.x + p.y * (uniforms.width + 1);
+    let p = vec2<i32>(global_id.xy);
+    if (p.x >= uniforms.width || p.y >= uniforms.height) { return; }
 
-  if (is_solid(i)) {
-    velocities[vi] = vec2<f32>(0.0, 0.0);
-    return;
-  }
+    let i = p.y * uniforms.width + p.x;
+    let vi = p.x + p.y * (uniforms.width + 1);
 
-  var v_top = velocities[vi].x;
-  var v_left = velocities[vi].y;
+    // Subtract pressure gradient from velocities
+    // Pair.y is Left, Pair.x is Top
+    
+    // Update Left face
+    if (p.x > 0 && !is_solid(p.x, p.y) && !is_solid(p.x - 1, p.y)) {
+        velocities[vi].y -= uniforms.k * (pressures[i] - pressures[i - 1]);
+    }
 
-  if (!is_solid(i - uniforms.width)) {
-    v_top -= uniforms.k * (pressures[i] - pressures[i - uniforms.width]);
-  } else {
-    v_top = 0.0;
-  }
-
-  if (!is_solid(i - 1)) {
-    v_left -= uniforms.k * (pressures[i] - pressures[i - 1]);
-  } else {
-    v_left = 0.0;
-  }
-
-  velocities[vi] = vec2<f32>(v_top, v_left);
+    // Update Top face
+    if (p.y > 0 && !is_solid(p.x, p.y) && !is_solid(p.x, p.y - 1)) {
+        velocities[vi].x -= uniforms.k * (pressures[i] - pressures[i - uniforms.width]);
+    }
 }

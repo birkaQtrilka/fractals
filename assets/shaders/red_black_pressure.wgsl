@@ -16,30 +16,24 @@ struct GridUniforms {
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-  let p = vec2<i32>(global_id.xy);
-  
-  if (p.x >= uniforms.width || p.y >= uniforms.height) {
-    return;
-  }
-  
-  if ((p.x + p.y) % 2 != uniforms.parity) {
-    return; // only this pass's color
-  }
+    let p = vec2<i32>(global_id.xy);
+    if (p.x >= uniforms.width || p.y >= uniforms.height) { return; }
+    
+    // Red-Black parity check: (x + y) % 2
+    if ((p.x + p.y) % 2 != uniforms.parity) {
+        return;
+    }
 
-  let i = p.y * uniforms.width + p.x;
-  let it = inv_total[i];
-  
-  // Boundary cells have inv_total == 0.0 (set in prepare step). 
-  // This early return cleanly prevents out-of-bounds indexing for i - width etc.
-  if (it == 0.0) { 
-    pressures[i] = 0.0; 
-    return; 
-  }
+    let i = p.y * uniforms.width + p.x;
+    if (inv_total[i] == 0.0) { return; }
 
-  let p_sum = pressures[i - uniforms.width] 
-            + pressures[i - 1]
-            + pressures[i + 1]     
-            + pressures[i + uniforms.width];
+    var sum: f32 = 0.0;
+    // Sample neighbors
+    if (p.y > 0) { sum += pressures[i - uniforms.width]; }
+    if (p.x > 0) { sum += pressures[i - 1]; }
+    if (p.x + 1 < uniforms.width) { sum += pressures[i + 1]; }
+    if (p.y + 1 < uniforms.height) { sum += pressures[i + uniforms.width]; }
 
-  pressures[i] = (p_sum + rhs[i]) * it;
+    // Gauss-Seidel iteration
+    pressures[i] = (rhs[i] + sum) * inv_total[i];
 }

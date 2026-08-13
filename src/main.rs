@@ -142,8 +142,8 @@ impl ApplicationHandler for App {
       self.worlds.push(Box::new(Smoke::start(
         size.width as f32,
         size.height as f32,
+        140,
         100,
-        90,
         1.0,
         0.04,
         Rc::clone(&self.input_handler),
